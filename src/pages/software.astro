@@ -1,0 +1,248 @@
+---
+// src/pages/software.astro
+// The /software directory: every `software` collection entry, grouped by
+// `category`, one card per tool. Visual language (eyebrow, hero, tag-pill
+// cards with a monogram mark) ported from
+// design_handoff_optout_wiki/software.dc.html where practical, adapted from
+// that prototype's sc-for/hardcoded mock tool list (with fields this
+// collection schema doesn't have — oss, replaces, platforms, color, the
+// client-side category filter buttons driven by DCLogic state) to this
+// build's real content-collection shape ({id,name,category,url,summary,tags})
+// and to static, build-time grouped sections (no client JS/filter runtime
+// available beyond vanilla <script> islands). Functional requirements
+// (grouped-by-category listing, outbound rel="noopener" links, CollectionPage
+// + BreadcrumbList JSON-LD) take priority over pixel parity per the task
+// brief.
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const sw = await getCollection('software');
+
+// Group by category with a portable reduce — NOT Object.groupBy, which
+// requires Node 21+ and would throw on this project's pinned Node 20 build
+// host even though it passes locally on newer Node.
+const byCat = sw.reduce<Record<string, typeof sw>>((acc, e) => {
+  (acc[e.data.category] ??= []).push(e);
+  return acc;
+}, {});
+const categories = Object.entries(byCat);
+
+// Monogram mark colors, cycled per entry — ported palette from the
+// prototype's hardcoded per-tool `color` field, which this schema has no
+// equivalent of.
+const palette = ['#caf04a', '#ffd27f', '#9fd0ff', '#7fe0b0', '#c9b8ff', '#f3a9c0'];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'Recommended software',
+  url: 'https://optout.wiki/software',
+  description:
+    'A vetted directory of private software, chosen for open-source licensing, no telemetry, and independent audits.',
+  isPartOf: { '@type': 'WebSite', name: 'OptOut.wiki', url: 'https://optout.wiki/' },
+  breadcrumb: {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://optout.wiki/' },
+      { '@type': 'ListItem', position: 2, name: 'Software', item: 'https://optout.wiki/software' },
+    ],
+  },
+};
+// JSON.stringify does not escape `</script>` or `<!--` inside string values,
+// so a name/summary containing those sequences could break out of this
+// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
+// identically but browsers can't interpret as markup.
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+---
+<Base
+  title="Private software directory | OptOut.wiki"
+  description="Hand-vetted private replacements for the apps leaking your data: browsers, search, email, messaging, VPN and DNS, password managers, and operating systems."
+>
+  <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />
+  <Header current="software" />
+  <main class="software-main">
+    <section class="software-head">
+      <div class="eyebrow">Tools we trust</div>
+      <h1>Recommended software</h1>
+      <p class="dek">
+        Private replacements for the apps leaking your data, vetted for open-source licensing, no
+        telemetry, and independent audits.
+      </p>
+    </section>
+
+    {categories.map(([cat, items]) => (
+      <section class="cat-section">
+        <h2 class="cat-title">{cat}</h2>
+        <div class="tool-grid">
+          {items.map((e, i) => (
+            <article class="tool-card" data-name={e.data.name}>
+              <a href={e.data.url} rel="noopener" target="_blank" class="tool-card-link">
+                <div class="tool-card-top">
+                  <div class="tool-mark" style={`background:${palette[i % palette.length]}`} aria-hidden="true">
+                    {e.data.name.charAt(0)}
+                  </div>
+                  <span class="visit-arrow" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M4 12L12 4M12 4H6M12 4V10"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <h3 class="tool-name">{e.data.name}</h3>
+                <p class="tool-summary">{e.data.summary}</p>
+                {e.data.tags.length > 0 && (
+                  <div class="tool-tags">
+                    {e.data.tags.map((t) => <span class="tool-tag">{t}</span>)}
+                  </div>
+                )}
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+    ))}
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .software-main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px 72px;
+  }
+  .software-head {
+    padding: 52px 0 36px;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.03em;
+    margin: 0 0 14px;
+  }
+  .dek {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0;
+  }
+  .cat-section {
+    padding-top: 28px;
+  }
+  .cat-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+  }
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 12px;
+  }
+  .tool-card {
+    display: block;
+  }
+  .tool-card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    text-decoration: none;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    transition: border-color 0.15s ease;
+  }
+  .tool-card-link:hover {
+    border-color: var(--accent);
+  }
+  .tool-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .tool-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    color: #16171c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .visit-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .tool-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 0 0 8px;
+  }
+  .tool-summary {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 14px;
+    flex: 1;
+  }
+  .tool-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .tool-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+
+  @media (max-width: 900px) {
+    .tool-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 620px) {
+    .tool-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
