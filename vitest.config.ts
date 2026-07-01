@@ -7,5 +7,11 @@ export default getViteConfig({
     // runs, so `astro:content` (getCollection/getEntry) resolves under
     // Vitest. See tests/setup/sync-content.ts for why this is needed.
     globalSetup: ['./tests/setup/sync-content.ts'],
+    // tests/e2e/** are Playwright specs (run via `npm run test:e2e`), not
+    // Vitest tests — exclude them, since Vitest's default include glob
+    // (`**/*.spec.ts`) would otherwise also pick up `*.spec.ts` files and
+    // fail trying to load `@playwright/test`'s `test()` outside a Playwright
+    // runner.
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**'],
   },
 });

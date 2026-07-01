@@ -1,0 +1,419 @@
+---
+// src/pages/contribute.astro
+// The /contribute page: hero intro, the draft-submission form
+// (<ContributeForm/>, Task 15 — wraps POST /api/contribute from Task 14),
+// and the static five-stage vetting-pipeline explainer. Visual language
+// (hero eyebrow/headline, vetting timeline, accept/reject criteria, closing
+// CTA) ported from design_handoff_optout_wiki/contribute.dc.html, adapted
+// from that prototype's sc-for/state-driven form (category "pills", level
+// toggle, file upload, onSubmit handler) to this build's static content +
+// a real fetch-based <ContributeForm/> since this build has no client
+// framework/runtime beyond vanilla <script> islands — see ContributeForm.astro
+// for that adaptation. The "rules" sidebar and screenshot-upload block are
+// prototype-only conveniences with no server-side counterpart yet (Task 14's
+// payload has no image field) and are dropped; functional requirements
+// (form -> POST /api/contribute, `id="vetting"`) take priority over pixel
+// parity per the task brief.
+//
+// FORWARD-DEP (required, do not remove): `id="vetting"` on the pipeline
+// <section> below — Footer.astro links `/contribute#vetting` ("How vetting
+// works") and the home page's contributors CTA links the same anchor.
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import ContributeForm from '../components/ContributeForm.astro';
+
+const pipeline = [
+  {
+    n: '1',
+    title: 'Draft',
+    who: 'you',
+    body: 'You submit through the form above. A public review thread opens instantly — nothing is decided behind closed doors.',
+  },
+  {
+    n: '2',
+    title: 'Open review',
+    who: 'the community',
+    body: 'Anyone can read, test the steps, and comment. Claims without a working source get flagged right away.',
+  },
+  {
+    n: '3',
+    title: 'Source check',
+    who: 'editors',
+    body: 'Two editors confirm every link supports what the guide says, and that the steps still work today.',
+  },
+  {
+    n: '4',
+    title: 'Hardening',
+    who: 'security reviewer',
+    body: 'A reviewer strips anything risky, adds the trade-offs and warnings, and dates the guide.',
+  },
+  {
+    n: '5',
+    title: 'Published',
+    who: 'live + dated',
+    body: 'It goes live with your name on it and a "last verified" date, and re-enters review automatically every quarter.',
+  },
+];
+
+const accept = [
+  'Solve a real, specific opt-out — not vague "privacy advice".',
+  'Cite a working source for every factual claim.',
+  'Lay out numbered steps a non-technical person can follow.',
+  'State the trade-offs honestly, including what you lose.',
+];
+
+const reject = [
+  'Rely on memory or a forum rumor with no source.',
+  'Promote a paid product or a referral link.',
+  'Skip the risks or oversell what the opt-out does.',
+  "Copy another site's text instead of writing it plainly.",
+];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'How a draft becomes a guide on OptOut.wiki',
+  description: "OptOut's open, public, five-stage process for vetting a submitted opt-out guide.",
+  step: pipeline.map((p) => ({ '@type': 'HowToStep', name: p.title, text: p.body })),
+};
+// JSON.stringify does not escape `</script>` or `<!--` inside string values,
+// so a step name/body containing those sequences could break out of this
+// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
+// identically but browsers can't interpret as markup.
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+---
+<Base
+  title="Contribute a guide | OptOut.wiki"
+  description="Write the opt-out guide you wish existed. No account, no fee, you keep the credit. See exactly how OptOut's public, five-stage vetting process turns a draft into a guide."
+>
+  <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />
+  <Header current="contribute" />
+  <main>
+    <section class="hero">
+      <div class="hero-eyebrow">No account &middot; No fee &middot; You keep the credit</div>
+      <h1>Write the guide you<br /><span class="highlight">wish existed.</span></h1>
+      <p class="hero-dek">
+        You figured out an opt-out the hard way. Spend ten minutes writing it down and you spare
+        thousands of people the same fight. Here is exactly how it works.
+      </p>
+    </section>
+
+    <section class="form-section">
+      <ContributeForm />
+    </section>
+
+    <section id="vetting" class="vetting">
+      <div class="vetting-inner">
+        <div class="vetting-head">
+          <div class="eyebrow">Vetted in the open</div>
+          <h2>How a draft becomes a guide</h2>
+          <p class="dek">
+            Five stages, all public. You can watch any guide move through them — including who
+            reviewed it and why.
+          </p>
+        </div>
+        <div class="pipeline">
+          {pipeline.map((p, i) => (
+            <div class="pipeline-step">
+              <div class="pipeline-rail">
+                <div class="pipeline-num" data-final={i === pipeline.length - 1}>{p.n}</div>
+                {i < pipeline.length - 1 && <div class="pipeline-line"></div>}
+              </div>
+              <div class="pipeline-body">
+                <div class="pipeline-title-row">
+                  <h3>{p.title}</h3>
+                  <span class="pipeline-who">{p.who}</span>
+                </div>
+                <p>{p.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="criteria">
+      <div class="criteria-grid">
+        <div class="criteria-card">
+          <div class="criteria-head">
+            <span class="criteria-glyph criteria-glyph-yes" aria-hidden="true">&#10003;</span>
+            <h3>We publish guides that&hellip;</h3>
+          </div>
+          <ul class="criteria-list">
+            {accept.map((a) => (
+              <li><span class="criteria-mark criteria-mark-yes" aria-hidden="true">&#10003;</span>{a}</li>
+            ))}
+          </ul>
+        </div>
+        <div class="criteria-card">
+          <div class="criteria-head">
+            <span class="criteria-glyph criteria-glyph-no" aria-hidden="true">&times;</span>
+            <h3>We send back guides that&hellip;</h3>
+          </div>
+          <ul class="criteria-list criteria-list-muted">
+            {reject.map((r) => (
+              <li><span class="criteria-mark criteria-mark-no" aria-hidden="true">&times;</span>{r}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .hero {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 28px 20px;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 6px 13px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 54px;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    margin: 0 0 18px;
+  }
+  .hero .highlight {
+    background: var(--accent-bright, var(--accent));
+    color: #16171c;
+    padding: 0 10px;
+    border-radius: 3px;
+  }
+  .hero-dek {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .form-section {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 28px 64px;
+  }
+
+  .vetting {
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 70px;
+  }
+  .vetting-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px;
+  }
+  .vetting-head {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .vetting-head h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 38px;
+    letter-spacing: -0.025em;
+    margin: 0 auto 14px;
+    max-width: 620px;
+  }
+  .vetting-head .dek {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .pipeline {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .pipeline-step {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 20px;
+  }
+  .pipeline-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pipeline-num {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .pipeline-step:first-child .pipeline-num {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .pipeline-num[data-final='true'] {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .pipeline-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    margin: 6px 0;
+    min-height: 24px;
+  }
+  .pipeline-body {
+    padding-bottom: 30px;
+  }
+  .pipeline-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .pipeline-title-row h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 21px;
+    margin: 0;
+  }
+  .pipeline-who {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 3px 10px;
+  }
+  .pipeline-body p {
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .criteria {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px;
+  }
+  .criteria-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .criteria-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .criteria-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .criteria-glyph {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .criteria-glyph-yes {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .criteria-glyph-no {
+    background: color-mix(in srgb, #e5484d 16%, transparent);
+    color: #e5484d;
+  }
+  .criteria-head h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 21px;
+    margin: 0;
+  }
+  .criteria-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+  }
+  .criteria-list li {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 12px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .criteria-list-muted li {
+    color: var(--muted);
+  }
+  .criteria-mark-yes {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .criteria-mark-no {
+    color: #e5484d;
+    font-weight: 700;
+  }
+
+  @media (max-width: 900px) {
+    .criteria-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 620px) {
+    .hero h1 {
+      font-size: 38px;
+    }
+  }
+</style>

@@ -1,0 +1,314 @@
+---
+// src/components/ContributeForm.astro
+// The draft-submission form for /contribute. Fields map 1:1 to the JSON
+// payload expected by POST /api/contribute (functions/api/contribute.js,
+// Task 14): title, category, level, body, sources[], anonymous, contributor,
+// website (honeypot), altcha. Styling is a fresh implementation (not a
+// verbatim port) — contribute.dc.html's form used runtime-only constructs
+// (sc-for category/level "pill" buttons, onClick state, onSubmit handler)
+// that have no static-HTML equivalent, so category/level are plain <select>s
+// and sources is a single comma-separated <input> per the task brief, which
+// also matches the API's `sources: string[]` shape more directly than the
+// prototype's one-URL-per-line textarea.
+//
+// ALTCHA: the widget (`<altcha-widget>`, registered by `import 'altcha'` in
+// the client <script> below) fetches a challenge from `challengeurl` and,
+// once solved, injects its own hidden `<input name="altcha">` into this
+// form — that's what `fd.get('altcha')` below reads (ALTCHA's documented
+// default hidden-field name; see node_modules/altcha/README.md#configuration).
+//
+// Honeypot: `name="website"` is visually hidden (off-screen position, not
+// display:none/visibility:hidden, so basic bots that skip hidden fields
+// still fill it) and excluded from the tab order / a11y tree. Server-side
+// (functions/_shared/security.js `isHoneypotTripped`) rejects any submission
+// where it's non-empty — see functions/api/contribute.js step 1.
+const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
+---
+<form id="contribute-form" class="contribute-form">
+  <div class="form-head">Draft a new guide</div>
+
+  <label class="field-label" for="cf-title">Guide title</label>
+  <input
+    id="cf-title"
+    name="title"
+    required
+    placeholder={'e.g. Opt out of Comcast’s "Use my data for ads"'}
+    class="field-input"
+  />
+
+  <div class="field-row">
+    <div>
+      <label class="field-label" for="cf-category">Category</label>
+      <select id="cf-category" name="category" class="field-input">
+        {categories.map((c) => <option value={c}>{c}</option>)}
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="cf-level">Difficulty</label>
+      <select id="cf-level" name="level" class="field-input">
+        <option value="LOW">LOW</option>
+        <option value="MED" selected>MED</option>
+        <option value="HIGH">HIGH</option>
+      </select>
+    </div>
+  </div>
+
+  <label class="field-label" for="cf-body">The steps <span class="field-hint">— Markdown welcome</span></label>
+  <textarea
+    id="cf-body"
+    name="body"
+    required
+    rows="8"
+    placeholder={'1. Go to ...\n2. Toggle off ...\n3. Call ... and ask for ...'}
+    class="field-input field-mono"
+  ></textarea>
+
+  <label class="field-label" for="cf-sources">Sources <span class="field-hint">— comma-separated URLs</span></label>
+  <input
+    id="cf-sources"
+    name="sources"
+    placeholder="https://example.com/privacy, https://example.com/opt-out"
+    class="field-input field-mono"
+  />
+
+  <div class="field-foot">
+    <label class="checkbox-label">
+      <input id="cf-anonymous" type="checkbox" name="anonymous" checked />
+      Submit anonymously
+    </label>
+    <input
+      id="cf-contributor"
+      name="contributor"
+      placeholder="Name (optional)"
+      class="field-input field-contributor"
+    />
+  </div>
+
+  <!-- honeypot: hidden from humans, left for bots that fill every field -->
+  <input
+    name="website"
+    tabindex="-1"
+    autocomplete="off"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+    aria-hidden="true"
+  />
+
+  <div class="altcha-row">
+    <altcha-widget challengeurl="/api/altcha-challenge"></altcha-widget>
+  </div>
+
+  <div class="form-submit">
+    <button type="submit" class="submit-btn">
+      Submit draft
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+  </div>
+
+  <div id="contribute-result" class="result" role="status" hidden></div>
+</form>
+
+<script>
+  import 'altcha';
+
+  const form = document.getElementById('contribute-form');
+  const anonymous = document.getElementById('cf-anonymous');
+  const contributor = document.getElementById('cf-contributor');
+  const out = document.getElementById('contribute-result');
+  const submitBtn = form?.querySelector('button[type="submit"]');
+
+  // UX nicety mirroring the server's own semantics (functions/api/contribute.js
+  // drops `contributor` whenever `anonymous` is true) — dim + disable the name
+  // field instead of letting someone type a name that will silently be ignored.
+  function syncContributorState() {
+    if (!contributor) return;
+    contributor.disabled = !!anonymous?.checked;
+  }
+  anonymous?.addEventListener('change', syncContributorState);
+  syncContributorState();
+
+  function showResult(message, ok) {
+    if (!out) return;
+    out.hidden = false;
+    out.textContent = message;
+    out.classList.toggle('result-ok', ok);
+    out.classList.toggle('result-error', !ok);
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const altcha = fd.get('altcha');
+    if (!altcha) {
+      showResult('Please complete the verification widget before submitting.', false);
+      return;
+    }
+
+    const payload = {
+      title: fd.get('title'),
+      category: fd.get('category'),
+      level: fd.get('level'),
+      body: fd.get('body'),
+      sources: String(fd.get('sources') || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      anonymous: fd.get('anonymous') === 'on',
+      contributor: fd.get('contributor'),
+      website: fd.get('website'),
+      altcha,
+    };
+
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const res = await fetch('/api/contribute', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      showResult(
+        res.ok ? 'Draft queued. A public review thread will open.' : 'Something went wrong — try again.',
+        res.ok,
+      );
+      if (res.ok) {
+        form.reset();
+        syncContributorState();
+      }
+    } catch {
+      showResult('Something went wrong — try again.', false);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .contribute-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+  }
+  .form-head {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin-bottom: 22px;
+  }
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .field-hint {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .field-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 9px;
+    padding: 12px 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    margin-bottom: 22px;
+  }
+  .field-input:focus {
+    border-color: var(--accent);
+  }
+  .field-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .field-row .field-input {
+    margin-bottom: 22px;
+  }
+  .field-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .field-contributor {
+    margin-bottom: 0;
+    max-width: 220px;
+  }
+  .field-contributor:disabled {
+    opacity: 0.5;
+  }
+  .altcha-row {
+    margin: 22px 0;
+  }
+  .form-submit {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .submit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 13px 22px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .submit-btn:hover {
+    filter: brightness(1.06);
+  }
+  .submit-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .result {
+    margin-top: 18px;
+    border-radius: 9px;
+    padding: 14px 16px;
+    font-size: 14.5px;
+  }
+  .result-ok {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    color: var(--ink);
+  }
+  .result-error {
+    background: color-mix(in srgb, #e5484d 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, #e5484d 40%, var(--border));
+    color: var(--ink);
+  }
+
+  @media (max-width: 620px) {
+    .field-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
