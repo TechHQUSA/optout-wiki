@@ -14,6 +14,7 @@ import Base from '../../layouts/Base.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { getCollection, render } from 'astro:content';
+import { formatVerified } from '../../lib/format';
 
 export async function getStaticPaths() {
   const guides = await getCollection('guides', (g) => g.data.published);
@@ -24,21 +25,20 @@ const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const toc = headings.filter((h) => h.depth === 2);
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'HowTo',
   name: entry.data.title,
   description: entry.data.summary,
 };
+// JSON.stringify does not escape `</script>` or `<!--` inside string values,
+// so a title/summary containing those sequences could break out of this
+// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
+// identically but browsers can't interpret as markup.
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
 ---
 <Base title={`${entry.data.title} | OptOut.wiki`} description={entry.data.summary}>
-  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />
   <Header current="guides" />
   <main>
     <section class="article-head">
@@ -63,7 +63,7 @@ const jsonLd = {
             <path d="M8.5 12l2.5 2.5 4.5-5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>
-            <strong>Last verified {dateFormatter.format(entry.data.lastVerified)}</strong>
+            <strong>Last verified {formatVerified(entry.data.lastVerified)}</strong>
             {entry.data.sources.length > 0 &&
               ` — ${entry.data.sources.length} source${entry.data.sources.length === 1 ? '' : 's'} cited.`}
             {entry.data.sources.length > 0 && <a href="#sources">See sources &rarr;</a>}

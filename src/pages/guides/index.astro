@@ -12,17 +12,12 @@ import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import GuideFilter from '../../components/GuideFilter.astro';
 import { getCollection } from 'astro:content';
+import { formatVerified } from '../../lib/format';
 
 const guides = (await getCollection('guides', (g) => g.data.published)).sort(
   (a, b) => +b.data.lastVerified - +a.data.lastVerified,
 );
 const categories = [...new Set(guides.map((g) => g.data.category))].sort();
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
 ---
 <Base
   title="Opt-out guides | OptOut.wiki"
@@ -59,7 +54,7 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
                 <p class="guide-card-summary">{g.data.summary}</p>
                 <div class="guide-card-verified">
                   <span class="dot" aria-hidden="true"></span>
-                  verified {dateFormatter.format(g.data.lastVerified)}
+                  verified {formatVerified(g.data.lastVerified)}
                 </div>
               </div>
               <div class="guide-card-arrow" aria-hidden="true">
