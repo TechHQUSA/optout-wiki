@@ -1,0 +1,84 @@
+---
+// src/components/GuideFilter.astro
+// Client-side DOM filter island for the /guides index. Ported in spirit from
+// design_handoff_optout_wiki/guides.dc.html's category-rail affordance, but
+// implemented as a search input + <select> per the task brief: the guide
+// grid is server-rendered (one <article class="guide-card" data-*> per
+// published guide, in src/pages/guides/index.astro) and this script narrows
+// which cards are visible by mutating their inline `display`. Progressive
+// enhancement: with JS disabled, the controls render but do nothing, and
+// every card stays visible.
+const { categories } = Astro.props;
+---
+<div class="guide-filter">
+  <label class="guide-filter-search">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6" />
+      <line x1="11" y1="11" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+    </svg>
+    <input id="guide-search" type="text" placeholder="Search opt-outs…" aria-label="Search guides" />
+  </label>
+  <select id="guide-cat" aria-label="Filter by category">
+    <option value="">All categories</option>
+    {categories.map((c) => <option value={c}>{c}</option>)}
+  </select>
+</div>
+
+<script>
+  const search = document.getElementById('guide-search');
+  const cat = document.getElementById('guide-cat');
+
+  function apply() {
+    const q = (search?.value || '').trim().toLowerCase();
+    const c = cat?.value || '';
+    document.querySelectorAll('.guide-card').forEach((el) => {
+      const okCat = !c || el.getAttribute('data-category') === c;
+      const okQ = !q || (el.getAttribute('data-title') || '').includes(q);
+      el.style.display = okCat && okQ ? '' : 'none';
+    });
+  }
+
+  search?.addEventListener('input', apply);
+  cat?.addEventListener('change', apply);
+</script>
+
+<style>
+  .guide-filter {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 4px 0 28px;
+  }
+  .guide-filter-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 240px;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--muted);
+  }
+  .guide-filter-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  #guide-cat {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    min-width: 170px;
+  }
+</style>

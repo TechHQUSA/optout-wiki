@@ -1,0 +1,210 @@
+---
+// src/pages/guides/index.astro
+// The /guides index: one server-rendered card per published guide (sorted by
+// most-recently-verified first), narrowed client-side by <GuideFilter/>.
+// Visual language (eyebrow, dek, row-style cards with a level pill + arrow
+// affordance) ported from design_handoff_optout_wiki/guides.dc.html, adapted
+// from that prototype's sc-for/state-driven category rail to a plain
+// search+select filter (see GuideFilter.astro) since this build has no
+// client framework/runtime beyond vanilla <script> islands.
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import GuideFilter from '../../components/GuideFilter.astro';
+import { getCollection } from 'astro:content';
+
+const guides = (await getCollection('guides', (g) => g.data.published)).sort(
+  (a, b) => +b.data.lastVerified - +a.data.lastVerified,
+);
+const categories = [...new Set(guides.map((g) => g.data.category))].sort();
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+---
+<Base
+  title="Opt-out guides | OptOut.wiki"
+  description="Step-by-step, community-vetted guides to opting out of the data collection you can't easily escape."
+>
+  <Header current="guides" />
+  <main class="guides-main">
+    <section class="guides-head">
+      <div class="eyebrow">The wiki &middot; {guides.length} guide{guides.length === 1 ? '' : 's'}</div>
+      <h1>Opt-out guides</h1>
+      <p class="dek">
+        Step-by-step, plain-language, and dated. Each one tells you how hard it is, how long it
+        takes, and when it was last checked to still work.
+      </p>
+    </section>
+
+    <section class="guides-body">
+      <GuideFilter categories={categories} />
+      <div id="guide-grid" class="guide-grid">
+        {guides.map((g) => (
+          <article
+            class="guide-card"
+            data-category={g.data.category}
+            data-level={g.data.level}
+            data-title={g.data.title.toLowerCase()}
+          >
+            <a href={`/guides/${g.id}`} class="guide-card-link">
+              <div class="guide-card-main">
+                <div class="guide-card-tags">
+                  <span class="level-tag" data-level={g.data.level}>{g.data.level}</span>
+                  <span class="guide-card-category">{g.data.category}</span>
+                </div>
+                <h2 class="guide-card-title">{g.data.title}</h2>
+                <p class="guide-card-summary">{g.data.summary}</p>
+                <div class="guide-card-verified">
+                  <span class="dot" aria-hidden="true"></span>
+                  verified {dateFormatter.format(g.data.lastVerified)}
+                </div>
+              </div>
+              <div class="guide-card-arrow" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M3 8h10M9 4l4 4-4 4"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .guides-main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 28px 72px;
+  }
+  .guides-head {
+    padding: 52px 0 8px;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.03em;
+    margin: 0 0 14px;
+  }
+  .dek {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0;
+  }
+  .guides-body {
+    padding-top: 24px;
+  }
+  .guide-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .guide-card {
+    display: block;
+  }
+  .guide-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.15s ease;
+  }
+  .guide-card-link:hover {
+    border-color: var(--accent);
+  }
+  .guide-card-tags {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 7px;
+  }
+  .level-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+  .level-tag[data-level='HIGH'] {
+    background: color-mix(in srgb, #e5484d 16%, transparent);
+    color: #e5484d;
+  }
+  .level-tag[data-level='MED'] {
+    background: var(--accent-bright);
+    color: #16171c;
+  }
+  .guide-card-category {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .guide-card-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .guide-card-summary {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0 0 10px;
+    max-width: 60ch;
+  }
+  .guide-card-verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .guide-card-verified .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .guide-card-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    color: var(--ink);
+  }
+</style>
