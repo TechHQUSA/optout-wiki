@@ -1,0 +1,9 @@
+name = "optout-wiki"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "optout-wiki"
+database_id = "PLACEHOLDER_SET_AFTER_wrangler_d1_create"
+migrations_dir = "migrations"

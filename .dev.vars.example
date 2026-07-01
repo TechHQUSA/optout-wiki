@@ -1,0 +1,3 @@
+ALTCHA_HMAC_SECRET=dev-hmac-secret-change-me
+ALTCHA_HMAC_KEY_SECRET=dev-hmac-key-secret-change-me
+IP_SALT=dev-ip-salt-change-me
