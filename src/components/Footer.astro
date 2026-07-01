@@ -1,0 +1,83 @@
+---
+// src/components/Footer.astro
+// Ported from design_handoff_optout_wiki/Footer.dc.html — markup + inline
+// styles copied verbatim from the prototype. The prototype's runtime bits
+// (<x-dc>, <helmet>, support.js, sc-for, style-hover) are prototype-only and
+// dropped in favor of Astro's build-time templating:
+//   - sc-for over columns / col.links -> static .map() over `columns` below
+//   - style-hover="..."               -> scoped :hover rule in <style> below
+// Link hrefs are reconciled to clean URLs (/guides, /software, /blog,
+// /contribute, /#about, /#contributors), not the prototype's *.dc.html
+// hrefs. Targets with no route yet in the plan (privacy policy, source code,
+// Mastodon) are left as "#" placeholders, matching the prototype.
+const columns = [
+  {
+    title: 'The Wiki',
+    links: [
+      { label: 'Opt-out guides', href: '/guides' },
+      { label: 'Software directory', href: '/software' },
+      { label: 'Weekly blog', href: '/blog' },
+      { label: 'Recently updated', href: '/guides' },
+    ],
+  },
+  {
+    title: 'Contribute',
+    links: [
+      { label: 'Submit an article', href: '/contribute' },
+      { label: 'How vetting works', href: '/contribute#vetting' },
+      { label: 'Style guide', href: '/contribute' },
+      { label: 'Contributors', href: '/#contributors' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { label: 'About the mission', href: '/#about' },
+      { label: 'Our privacy policy', href: '#' },
+      { label: 'Source code', href: '#' },
+      { label: 'Mastodon', href: '#' },
+    ],
+  },
+];
+---
+<footer style="background:var(--surface-2);color:var(--ink);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif">
+  <div style="max-width:1180px;margin:0 auto;padding:64px 28px 28px;box-sizing:border-box">
+
+    <div style="display:flex;flex-wrap:wrap;gap:48px 32px;align-items:flex-start">
+      <div style="flex:1 1 280px;min-width:260px">
+        <div style="display:flex;align-items:center;gap:1px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;letter-spacing:-0.025em">
+          <span>Opt</span><span style="background:var(--ink);color:var(--bg);padding:1px 7px 2px;border-radius:2px">Out</span>
+        </div>
+        <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:color-mix(in srgb, var(--ink) 72%, transparent);max-width:300px">The community wiki for taking your data back. Written by people who opt out, vetted in the open, free forever.</p>
+        <div style="display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.04em;color:var(--accent);border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);border-radius:999px;padding:6px 12px">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)"></span>
+          NO TRACKERS &middot; NO ADS &middot; NO ACCOUNT NEEDED
+        </div>
+      </div>
+
+      {columns.map((col) => (
+        <div style="flex:0 1 170px;min-width:150px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--ink) 50%, transparent);margin-bottom:16px">{col.title}</div>
+          <div style="display:flex;flex-direction:column;gap:11px">
+            {col.links.map((link) => (
+              <a href={link.href} class="footer-link" style="text-decoration:none;color:color-mix(in srgb, var(--ink) 82%, transparent);font-size:14.5px">{link.label}</a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div style="margin-top:56px;padding-top:22px;border-top:1px solid color-mix(in srgb, var(--ink) 16%, transparent);display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;justify-content:space-between">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:color-mix(in srgb, var(--ink) 55%, transparent)">Content licensed <span style="color:color-mix(in srgb, var(--ink) 85%, transparent)">CC BY-SA 4.0</span> &middot; Code is open source</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:color-mix(in srgb, var(--ink) 55%, transparent)">Hosted on the edge &middot; optout.wiki</div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  /* Ported from the prototype's style-hover="..." runtime attribute, which
+     has no HTML/CSS equivalent — expressed here as a scoped :hover rule. */
+  .footer-link:hover {
+    color: var(--accent);
+  }
+</style>
