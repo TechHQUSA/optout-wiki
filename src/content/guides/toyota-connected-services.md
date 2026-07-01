@@ -60,3 +60,4 @@ Address: [address on file]
 3. [Automakers shared driving data with insurers, raising rates](https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html) — The New York Times, 2024
 4. [Request your consumer disclosure report](https://consumer.risk.lexisnexis.com/) — LexisNexis Risk Solutions
 5. [Connected Services data settings & deactivation](https://www.toyota.com/owners/connected-services.html) — Toyota owner support
+6. [Toyota Privacy Portal](https://www.toyota.com/privacyvts/) — Toyota
