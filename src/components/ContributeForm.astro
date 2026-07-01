@@ -94,7 +94,12 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
   />
 
   <div class="altcha-row">
-    <altcha-widget challengeurl="/api/altcha-challenge"></altcha-widget>
+    <!-- workerurl points at a SAME-ORIGIN copy of ALTCHA's PoW worker
+         (public/altcha-worker.js) so it loads under worker-src 'self'. The
+         default 'altcha' build instead spins up a blob:/data: worker, which
+         our strict CSP (no blob:/data: in script-src/worker-src) blocks — see
+         the `import 'altcha/altcha.ext'` note in the client script below. -->
+    <altcha-widget challengeurl="/api/altcha-challenge" workerurl="/altcha-worker.js"></altcha-widget>
   </div>
 
   <div class="form-submit">
@@ -110,7 +115,17 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
 </form>
 
 <script>
-  import 'altcha';
+  // Use ALTCHA's EXTERNAL build (dist_external), not the default bundle. The
+  // default 'altcha' inlines its PoW worker and creates it from a blob:/data:
+  // URL, which our strict CSP forbids (script-src/worker-src have no blob:/
+  // data:) — so the widget could never solve and the form was dead in prod.
+  // The external build instead does `new Worker(new URL(workerurl, ...))`,
+  // loading a same-origin worker (public/altcha-worker.js) allowed by
+  // worker-src 'self'. The external build ships its CSS separately (the
+  // default inlines it), so we import altcha/altcha.css too — a same-origin
+  // stylesheet, fine under style-src 'self'.
+  import 'altcha/altcha.ext';
+  import 'altcha/altcha.css';
 
   const form = document.getElementById('contribute-form') as HTMLFormElement | null;
   const anonymous = document.getElementById('cf-anonymous') as HTMLInputElement | null;

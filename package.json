@@ -10,7 +10,8 @@
     "check": "astro check",
     "preview": "astro preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:csp": "playwright test --config playwright.altcha.config.ts"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",
