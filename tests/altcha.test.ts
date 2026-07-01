@@ -5,7 +5,7 @@
 // proving `issueChallenge`/`verifyAltcha` actually delegate to it rather than
 // stubbing verification.
 import { expect, test } from 'vitest';
-import { solveChallenge } from 'altcha-lib';
+import { createChallenge, solveChallenge } from 'altcha-lib';
 import { issueChallenge, verifyAltcha } from '../functions/_shared/altcha.js';
 
 const env = { ALTCHA_HMAC_SECRET: 'test-secret', ALTCHA_HMAC_KEY_SECRET: 'test-key-secret' };
@@ -64,6 +64,35 @@ test('wrong solution number fails verification', async () => {
   );
 
   expect(await verifyAltcha(wrongPayload, env)).toBe(false);
+});
+
+test('expired challenge fails verification even when correctly solved', async () => {
+  // Build a challenge the same way issueChallenge does, but with `expires`
+  // already in the past — the realistic shape of a replayed-too-late payload.
+  const challenge = await createChallenge({
+    hmacKey: env.ALTCHA_HMAC_SECRET,
+    algorithm: 'SHA-256',
+    maxnumber: 100000,
+    expires: new Date(Date.now() - 60_000),
+  });
+
+  const solution = await solveChallenge(challenge.challenge, challenge.salt, challenge.algorithm, challenge.maxnumber).promise;
+  expect(solution).not.toBeNull();
+
+  const payload = btoa(
+    JSON.stringify({
+      algorithm: challenge.algorithm,
+      challenge: challenge.challenge,
+      number: solution.number,
+      salt: challenge.salt,
+      signature: challenge.signature,
+    }),
+  );
+
+  // Sanity check: this is a correctly-solved, correctly-signed payload —
+  // the only thing wrong with it is that it's expired. Without the
+  // `checkExpires: true` enforcement in verifyAltcha this would verify `true`.
+  expect(await verifyAltcha(payload, env)).toBe(false);
 });
 
 test('garbage payload fails verification without throwing', async () => {
