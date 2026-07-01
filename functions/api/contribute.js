@@ -47,6 +47,13 @@ export async function handleContribute(request, env, now) {
     return json({ ok: false, error: 'bad-json' }, 400);
   }
 
+  // Reject anything whose top level isn't a plain object (null, arrays,
+  // strings, numbers, booleans are all valid JSON but not a valid payload
+  // shape) before any field access below.
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    return json({ ok: false, error: 'invalid' }, 400);
+  }
+
   // 1. Honeypot: bots that fill the hidden field get a generic 400 —
   // no indication it was the honeypot specifically that tripped.
   if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
@@ -54,10 +61,11 @@ export async function handleContribute(request, env, now) {
   // 2. ALTCHA proof-of-work solution must verify (and not be expired).
   if (!(await verifyAltcha(data.altcha, env))) return json({ ok: false, error: 'altcha' }, 400);
 
-  // 3. Required-field validation.
-  const title = (data.title || '').trim();
-  const body = (data.body || '').trim();
-  const category = (data.category || '').trim();
+  // 3. Required-field validation. Non-string fields become '' (empty)
+  // rather than throwing, so they cleanly fail the non-empty check below.
+  const title = typeof data.title === 'string' ? data.title.trim() : '';
+  const body = typeof data.body === 'string' ? data.body.trim() : '';
+  const category = typeof data.category === 'string' ? data.category.trim() : '';
   if (!title || !body || !category || !LEVELS.has(data.level)) return json({ ok: false, error: 'invalid' }, 400);
 
   // 4. Per-IP rate limit. Only the salted hash of the IP is ever

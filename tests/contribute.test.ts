@@ -80,12 +80,33 @@ test('bad altcha -> 400', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, altcha: 'bad' }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
 });
 
 test('missing required field -> 400', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, title: '' }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('null JSON body -> 400, no throw, no insert', async () => {
+  const db = makeDb();
+  const request = new Request('https://x/api/contribute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(null),
+  });
+  const res = await handleContribute(request, { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('non-string field (title: 123) -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, title: 123 }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
 });
 
 test('rate limit exceeded -> 429, no insert', async () => {
