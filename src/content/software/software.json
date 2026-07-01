@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mullvad",
+    "name": "Mullvad VPN",
+    "category": "Network",
+    "url": "https://mullvad.net",
+    "summary": "Anonymous, no-account VPN paid by cash or crypto.",
+    "tags": ["vpn", "no-logs"]
+  },
+  {
+    "id": "grapheneos",
+    "name": "GrapheneOS",
+    "category": "OS",
+    "url": "https://grapheneos.org",
+    "summary": "Hardened, de-Googled Android for Pixel devices.",
+    "tags": ["mobile", "os"]
+  },
+  {
+    "id": "signal",
+    "name": "Signal",
+    "category": "Messaging",
+    "url": "https://signal.org",
+    "summary": "End-to-end encrypted messaging and calls with minimal metadata retention.",
+    "tags": ["messaging", "encryption"]
+  }
+]
