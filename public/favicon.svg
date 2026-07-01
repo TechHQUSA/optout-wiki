@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="OptOut.wiki">
+  <title>OptOut.wiki</title>
+  <!-- "OO" mark (OptOut) crossed by a redaction bar, in the site accent color -->
+  <circle cx="11" cy="16" r="7" fill="none" stroke="#258343" stroke-width="4"/>
+  <circle cx="21" cy="16" r="7" fill="none" stroke="#258343" stroke-width="4"/>
+  <rect x="2" y="13" width="28" height="6" rx="1" fill="#258343"/>
+</svg>
