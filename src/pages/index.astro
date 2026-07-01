@@ -1,3 +1,721 @@
 ---
+// src/pages/index.astro
+// The `/` home page: mission hero, browse-by-category (from the guides
+// collection), contributor CTA, and a "latest blog" teaser (3 newest
+// non-draft posts). Visual language (eyebrow, hero, numbered opt-out cards,
+// contributor-growth split section, trust strip, blog cards, final CTA
+// banner) ported from design_handoff_optout_wiki/index.dc.html where
+// practical, adapted from that prototype's sc-for/hardcoded mock data
+// (heroStats, dossier, optOuts, steps, contributors, activity, trust, posts)
+// to this build's real content-collection data (guides grouped by category,
+// blog posts) since none of that mock data has a collection-backed
+// equivalent yet. Functional requirements (hero copy incl. "Opt out",
+// /guides + /contribute CTAs, #blog/#about/#contributors anchor targets for
+// Header/Footer nav, WebSite JSON-LD) take priority over pixel parity per
+// the task brief.
+//
+// #about and #contributors are FORWARD DEPENDENCIES: Header.astro links to
+// `/#about` and Footer.astro links to `/#about` + `/#contributors` (see
+// those components' nav/columns arrays). Removing either id here breaks
+// those existing nav/footer links.
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { getCollection } from 'astro:content';
+import { formatVerified } from '../lib/format';
+
+const guides = await getCollection('guides', (g) => g.data.published);
+const posts = (await getCollection('blog', (p) => !p.data.draft))
+  .sort((a, b) => +b.data.date - +a.data.date)
+  .slice(0, 3);
+
+// Group guides by category, then take one representative guide per category
+// (most recently verified) to render as a browse-by-category card — mirrors
+// the prototype's "What you can opt out of" grid, but built from real
+// content instead of hardcoded copy. Portable reduce, NOT Object.groupBy
+// (requires Node 21+; this build targets the pinned Node 20 build host —
+// see software.astro for the same constraint).
+const byCategory = guides.reduce<Record<string, typeof guides>>((acc, g) => {
+  (acc[g.data.category] ??= []).push(g);
+  return acc;
+}, {});
+const categoryCards = Object.entries(byCategory)
+  .map(([category, entries]) => ({
+    category,
+    count: entries.length,
+    // Most recently verified guide in this category, used as the card's
+    // link target and blurb.
+    top: entries.sort((a, b) => +b.data.lastVerified - +a.data.lastVerified)[0],
+  }))
+  .sort((a, b) => a.category.localeCompare(b.category));
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://optout.wiki/#org',
+      name: 'OptOut.wiki',
+      url: 'https://optout.wiki/',
+      description: 'A community wiki helping people opt out of invasive data collection.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://optout.wiki/#site',
+      url: 'https://optout.wiki/',
+      name: 'OptOut.wiki',
+      publisher: { '@id': 'https://optout.wiki/#org' },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: { '@type': 'EntryPoint', urlTemplate: 'https://optout.wiki/guides?q={search_term_string}' },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+};
+// JSON.stringify does not escape `</script>` or `<!--` inside string values,
+// so a name/summary containing those sequences could break out of this
+// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
+// identically but browsers can't interpret as markup.
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
 ---
-<html><body><h1>OptOut.wiki</h1></body></html>
+<Base
+  title="OptOut.wiki — Claim your privacy. Opt out of the hard stuff."
+  description="A community wiki with plain-language guides to opting out of car data collection, ID-free phone service, anonymous LLC ownership, and private browsers and operating systems. Vetted in the open. No trackers."
+>
+  <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />
+  <Header current="home" />
+  <main class="home-main">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="hero-eyebrow">
+          <span class="dot" aria-hidden="true"></span>The consumer privacy wiki
+        </div>
+        <h1 class="hero-title">
+          Opt out of<br />the hard stuff.
+        </h1>
+        <p class="hero-dek">
+          Plain-language guides to opting out of the hard stuff &mdash; car data collection,
+          ID-free phone service, anonymous LLC ownership, private browsers and operating
+          systems. Written and vetted by the community.
+        </p>
+        <div class="hero-ctas">
+          <a href="/guides" class="btn btn-primary">
+            Browse guides
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="/contribute" class="btn btn-secondary">Contribute</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- BROWSE BY CATEGORY -->
+    <section class="browse">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">The hard stuff, solved</div>
+          <h2>What you can opt out of</h2>
+        </div>
+        <a href="/guides" class="section-link">All guides &rarr;</a>
+      </div>
+      <div class="category-grid">
+        {categoryCards.map(({ category, count, top }, i) => (
+          <a href={`/guides/${top.id}`} class="category-card">
+            <div class="category-card-top">
+              <span class="category-num">{String(i + 1).padStart(2, '0')}</span>
+              <span class="level-tag" data-level={top.data.level}>{top.data.level}</span>
+            </div>
+            <h3 class="category-title">{category}</h3>
+            <p class="category-blurb">{top.data.summary}</p>
+            <span class="category-count">{count} guide{count === 1 ? '' : 's'}</span>
+            <span class="read-link">
+              Read guide
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- CONTRIBUTOR GROWTH / CTA -->
+    <section id="contributors" class="contributors">
+      <div class="contributors-inner">
+        <div class="contributors-copy">
+          <div class="eyebrow">Built by the people</div>
+          <h2>The next guide is the one <span class="highlight">you</span> write.</h2>
+          <p>
+            Found a way to opt out of something the rest of us are stuck on? Document it.
+            Every submission is reviewed in the open by the community before it goes live
+            &mdash; no gatekeepers, no secret editors.
+          </p>
+          <div class="contributors-ctas">
+            <a href="/contribute" class="btn btn-accent">Submit your first article</a>
+            <a href="/contribute#vetting" class="btn-text">See how vetting works &rarr;</a>
+          </div>
+        </div>
+        <div class="contributors-steps">
+          <div class="step-card">
+            <div class="step-label">STEP 01</div>
+            <div class="step-title">Draft it</div>
+            <p class="step-body">Anyone can write a guide. Use our template, cite your sources, no account required.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-label">STEP 02</div>
+            <div class="step-title">Open review</div>
+            <p class="step-body">The community checks every claim and link in public. You see exactly who said what.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-label">STEP 03</div>
+            <div class="step-title">Harden it</div>
+            <p class="step-body">Editors verify steps still work and strip anything risky or out of date.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-label">STEP 04</div>
+            <div class="step-title">Published</div>
+            <p class="step-body">It goes live under CC BY-SA. Your name on it, free for everyone, forever.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABOUT / TRUST STRIP -->
+    <section id="about" class="about">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Why OptOut.wiki</div>
+          <h2>A wiki for taking your data back</h2>
+        </div>
+      </div>
+      <p class="about-dek">
+        OptOut.wiki is a community-vetted directory of opt-out guides: step-by-step
+        instructions for getting your data out of the hands of carmakers, data brokers, and
+        apps that quietly share more than you'd like. No accounts, no trackers, no ads
+        &mdash; just sourced, dated, and re-tested steps.
+      </p>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <div class="trust-glyph">&lt;/&gt;</div>
+          <h3>Vetted in the open</h3>
+          <p>Every edit, source and reviewer is public. No anonymous editorial board deciding what you see.</p>
+        </div>
+        <div class="trust-card">
+          <div class="trust-glyph">&empty;</div>
+          <h3>Zero tracking</h3>
+          <p>No analytics, no ads, no cookies, no accounts. We practice the privacy we preach.</p>
+        </div>
+        <div class="trust-card">
+          <div class="trust-glyph">&#8982;</div>
+          <h3>Tested, dated steps</h3>
+          <p>Guides show when they were last verified, because opt-out forms change every month.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LATEST BLOG -->
+    <section id="blog" class="blog">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">From the blog</div>
+          <h2>The latest dispatch</h2>
+        </div>
+        <a href="/blog" class="section-link">All posts &rarr;</a>
+      </div>
+      <div class="blog-grid">
+        {posts.map((p) => (
+          <a href={`/blog/${p.id}`} class="blog-card">
+            <div class="blog-card-bar" aria-hidden="true"></div>
+            <div class="blog-card-body">
+              <span class="blog-card-date">{formatVerified(p.data.date)}</span>
+              <h3 class="blog-card-title">{p.data.title}</h3>
+              <p class="blog-card-excerpt">{p.data.summary}</p>
+              <span class="read-link">Read &rarr;</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta">
+      <div class="final-cta-inner">
+        <h2>Privacy isn't given. It's claimed.</h2>
+        <p>Pick a guide and opt out this weekend &mdash; or document the next one for everyone behind you.</p>
+        <div class="final-cta-ctas">
+          <a href="/guides" class="btn btn-accent-bright">Browse the guides</a>
+          <a href="/contribute" class="btn btn-ghost">Contribute a guide</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .home-main {
+    overflow-x: hidden;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .section-head {
+    max-width: 1180px;
+    margin: 0 auto 30px;
+    padding: 0 28px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .section-head h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 34px;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .section-link {
+    text-decoration: none;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 15px;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 2px;
+    white-space: nowrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15.5px;
+    padding: 14px 22px;
+    border-radius: 9px;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.1);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--accent);
+  }
+  .btn-accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn-accent:hover {
+    filter: brightness(1.06);
+  }
+  .btn-text {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 15.5px;
+    padding: 13px 4px;
+  }
+
+  /* HERO */
+  .hero {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px 40px;
+  }
+  .hero-copy {
+    max-width: 620px;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 6px 13px;
+  }
+  .hero-eyebrow .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .hero-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 56px;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    margin: 22px 0 0;
+  }
+  .hero-dek {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 24px 0 0;
+  }
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  /* BROWSE BY CATEGORY */
+  .browse {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 54px 28px;
+  }
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .category-card {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    min-height: 188px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .category-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+  .category-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .category-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .level-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--accent-bright, var(--accent));
+    color: var(--accent-ink);
+  }
+  .category-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .category-blurb {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0 0 12px;
+    flex: 1;
+  }
+  .category-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .read-link {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* CONTRIBUTORS */
+  .contributors {
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .contributors-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px;
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 48px;
+    align-items: start;
+  }
+  .contributors-copy h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    margin: 0 0 18px;
+  }
+  .contributors-copy .highlight {
+    background: var(--accent-bright, var(--accent));
+    color: var(--accent-ink);
+    padding: 0 8px;
+    border-radius: 3px;
+  }
+  .contributors-copy p {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0 0 26px;
+  }
+  .contributors-ctas {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .contributors-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 18px;
+  }
+  .step-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .step-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  .step-body {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* ABOUT / TRUST */
+  .about {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px;
+  }
+  .about-dek {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0 0 34px;
+  }
+  .trust-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .trust-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px;
+    background: var(--surface);
+  }
+  .trust-glyph {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: var(--accent-bright, var(--accent));
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .trust-card h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 0 0 8px;
+  }
+  .trust-card p {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* BLOG */
+  .blog {
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 0;
+  }
+  .blog .section-head {
+    margin-bottom: 28px;
+  }
+  .blog-grid {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .blog-card {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+  .blog-card:hover {
+    border-color: var(--accent);
+  }
+  .blog-card-bar {
+    height: 8px;
+    background: var(--accent);
+  }
+  .blog-card-body {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .blog-card-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .blog-card-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    line-height: 1.2;
+    margin: 0 0 10px;
+  }
+  .blog-card-excerpt {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 16px;
+    flex: 1;
+  }
+
+  /* FINAL CTA */
+  .final-cta {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 72px 28px;
+  }
+  .final-cta-inner {
+    position: relative;
+    overflow: hidden;
+    background: oklch(0.165 0.012 265);
+    border-radius: 20px;
+    padding: 56px 48px;
+    text-align: center;
+  }
+  .final-cta-inner h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 42px;
+    letter-spacing: -0.025em;
+    color: oklch(0.97 0.005 95);
+    margin: 0 0 14px;
+  }
+  .final-cta-inner p {
+    font-size: 18px;
+    line-height: 1.55;
+    color: color-mix(in srgb, oklch(0.97 0.005 95) 72%, transparent);
+    max-width: 520px;
+    margin: 0 auto 28px;
+  }
+  .final-cta-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-accent-bright {
+    background: var(--accent-bright, var(--accent));
+    color: #16171c;
+  }
+  .btn-accent-bright:hover {
+    filter: brightness(1.05);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: oklch(0.97 0.005 95);
+    border: 1px solid color-mix(in srgb, oklch(0.97 0.005 95) 30%, transparent);
+  }
+  .btn-ghost:hover {
+    border-color: oklch(0.97 0.005 95);
+  }
+
+  @media (max-width: 900px) {
+    .category-grid,
+    .trust-grid,
+    .blog-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .contributors-inner {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 620px) {
+    .category-grid,
+    .trust-grid,
+    .blog-grid,
+    .contributors-steps {
+      grid-template-columns: 1fr;
+    }
+    .hero-title {
+      font-size: 40px;
+    }
+  }
+</style>
