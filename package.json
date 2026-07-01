@@ -13,19 +13,20 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "^5.0.0",
-    "@astrojs/sitemap": "^3.2.0",
     "@astrojs/rss": "^4.0.0",
-    "@fontsource/space-grotesk": "^5.1.0",
-    "@fontsource/ibm-plex-sans": "^5.1.0",
+    "@astrojs/sitemap": "^3.2.0",
     "@fontsource/ibm-plex-mono": "^5.1.0",
+    "@fontsource/ibm-plex-sans": "^5.1.0",
+    "@fontsource/space-grotesk": "^5.1.0",
     "altcha": "^1.0.0",
-    "altcha-lib": "^1.0.0"
+    "altcha-lib": "^1.0.0",
+    "astro": "^5.0.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@playwright/test": "^1.48.0",
     "typescript": "^5.6.0",
     "vitest": "^3.2.4",
-    "@playwright/test": "^1.48.0",
     "wrangler": "^3.80.0"
   }
 }

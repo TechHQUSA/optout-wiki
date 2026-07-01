@@ -8,6 +8,9 @@
 // which cards are visible by mutating their inline `display`. Progressive
 // enhancement: with JS disabled, the controls render but do nothing, and
 // every card stays visible.
+interface Props {
+  categories: string[];
+}
 const { categories } = Astro.props;
 ---
 <div class="guide-filter">
@@ -25,13 +28,13 @@ const { categories } = Astro.props;
 </div>
 
 <script>
-  const search = document.getElementById('guide-search');
-  const cat = document.getElementById('guide-cat');
+  const search = document.getElementById('guide-search') as HTMLInputElement | null;
+  const cat = document.getElementById('guide-cat') as HTMLSelectElement | null;
 
   function apply() {
     const q = (search?.value || '').trim().toLowerCase();
     const c = cat?.value || '';
-    document.querySelectorAll('.guide-card').forEach((el) => {
+    document.querySelectorAll<HTMLElement>('.guide-card').forEach((el) => {
       const okCat = !c || el.getAttribute('data-category') === c;
       const okQ = !q || (el.getAttribute('data-title') || '').includes(q);
       el.style.display = okCat && okQ ? '' : 'none';

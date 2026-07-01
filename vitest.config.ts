@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { getViteConfig } from 'astro/config';
+import { configDefaults } from 'vitest/config';
 
 export default getViteConfig({
   test: {
@@ -11,7 +12,8 @@ export default getViteConfig({
     // Vitest tests — exclude them, since Vitest's default include glob
     // (`**/*.spec.ts`) would otherwise also pick up `*.spec.ts` files and
     // fail trying to load `@playwright/test`'s `test()` outside a Playwright
-    // runner.
-    exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**'],
+    // runner. Extend (not replace) Vitest's own default excludes
+    // (node_modules, dist, .git, etc.) so we don't silently lose those.
+    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
 });

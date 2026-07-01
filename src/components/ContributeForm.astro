@@ -112,11 +112,11 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
 <script>
   import 'altcha';
 
-  const form = document.getElementById('contribute-form');
-  const anonymous = document.getElementById('cf-anonymous');
-  const contributor = document.getElementById('cf-contributor');
-  const out = document.getElementById('contribute-result');
-  const submitBtn = form?.querySelector('button[type="submit"]');
+  const form = document.getElementById('contribute-form') as HTMLFormElement | null;
+  const anonymous = document.getElementById('cf-anonymous') as HTMLInputElement | null;
+  const contributor = document.getElementById('cf-contributor') as HTMLInputElement | null;
+  const out = document.getElementById('contribute-result') as HTMLElement | null;
+  const submitBtn = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
 
   // UX nicety mirroring the server's own semantics (functions/api/contribute.js
   // drops `contributor` whenever `anonymous` is true) — dim + disable the name
@@ -128,7 +128,7 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
   anonymous?.addEventListener('change', syncContributorState);
   syncContributorState();
 
-  function showResult(message, ok) {
+  function showResult(message: string, ok: boolean) {
     if (!out) return;
     out.hidden = false;
     out.textContent = message;
@@ -138,6 +138,7 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!form) return;
     const fd = new FormData(form);
     const altcha = fd.get('altcha');
     if (!altcha) {

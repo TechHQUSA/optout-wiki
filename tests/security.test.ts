@@ -21,9 +21,9 @@ test('honeypot trips only when filled', () => {
 test('rate limit allows up to max then blocks within window', async () => {
   const store = new Map();
   const db = {
-    prepare(sql) {
+    prepare(sql: string) {
       return {
-        bind(...args) {
+        bind(...args: unknown[]) {
           return {
             async first() { const r = store.get(args[0]); return r ?? null; },
             async run() {

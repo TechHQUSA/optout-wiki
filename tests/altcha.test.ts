@@ -18,7 +18,7 @@ test('issued challenge is solvable and verifies', async () => {
   expect(challenge.signature).toBeTypeOf('string');
 
   const solution = await solveChallenge(challenge.challenge, challenge.salt, challenge.algorithm, challenge.maxnumber).promise;
-  expect(solution).not.toBeNull();
+  if (!solution) throw new Error('challenge unsolved');
 
   const payload = btoa(
     JSON.stringify({
@@ -36,6 +36,7 @@ test('issued challenge is solvable and verifies', async () => {
 test('tampered signature fails verification', async () => {
   const challenge = await issueChallenge(env);
   const solution = await solveChallenge(challenge.challenge, challenge.salt, challenge.algorithm, challenge.maxnumber).promise;
+  if (!solution) throw new Error('challenge unsolved');
 
   const tamperedPayload = btoa(
     JSON.stringify({
@@ -77,7 +78,7 @@ test('expired challenge fails verification even when correctly solved', async ()
   });
 
   const solution = await solveChallenge(challenge.challenge, challenge.salt, challenge.algorithm, challenge.maxnumber).promise;
-  expect(solution).not.toBeNull();
+  if (!solution) throw new Error('challenge unsolved');
 
   const payload = btoa(
     JSON.stringify({

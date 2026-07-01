@@ -2,15 +2,15 @@
 import { expect, test, vi } from 'vitest';
 import { handleContribute } from '../functions/api/contribute.js';
 
-vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: async (p) => p === 'good' }));
+vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: async (p: string) => p === 'good' }));
 
 function makeDb() {
-  const rows = [];
+  const rows: unknown[] = [];
   return {
     rows,
-    prepare(sql) {
+    prepare(sql: string) {
       return {
-        bind(...a) {
+        bind(...a: unknown[]) {
           return {
             async first() {
               return null;
@@ -28,14 +28,14 @@ function makeDb() {
 // A db mock that also simulates the fixed-window rate limiter from
 // functions/_shared/security.js, so we can drive checkRateLimit into its
 // blocked (429) branch without reimplementing it here.
-function makeRateLimitedDb(count) {
-  const rows = [];
+function makeRateLimitedDb(count: number) {
+  const rows: unknown[] = [];
   const rateLimitRow = { window_start: 1000, count };
   return {
     rows,
-    prepare(sql) {
+    prepare(sql: string) {
       return {
-        bind(...a) {
+        bind(...a: unknown[]) {
           return {
             async first() {
               if (sql.startsWith('SELECT window_start, count FROM rate_limits')) return rateLimitRow;
@@ -51,7 +51,7 @@ function makeRateLimitedDb(count) {
   };
 }
 
-function req(body) {
+function req(body: unknown) {
   return new Request('https://x/api/contribute', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'cf-connecting-ip': '9.9.9.9' },
