@@ -27,6 +27,17 @@ const LEVELS = new Set(['LOW', 'MED', 'HIGH']);
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX = 5;
 
+// Per-field length caps (fail-closed). Without these a solver who clears the
+// ALTCHA/rate-limit gates could store multi-MB `title`/`body`/`sources`/etc.
+// rows, 5x/hour/IP. Checked on the trimmed values that actually get persisted,
+// and enforced BEFORE the INSERT so oversized payloads never reach D1.
+const MAX_TITLE = 200;
+const MAX_CATEGORY = 64;
+const MAX_BODY = 20000;
+const MAX_CONTRIBUTOR = 120;
+const MAX_SOURCES = 20; // number of source URLs
+const MAX_SOURCE_URL = 500; // chars per source URL
+
 const json = (obj, status) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
 
 /**
@@ -68,6 +79,22 @@ export async function handleContribute(request, env, now) {
   const category = typeof data.category === 'string' ? data.category.trim() : '';
   if (!title || !body || !category || !LEVELS.has(data.level)) return json({ ok: false, error: 'invalid' }, 400);
 
+  // 3b. Length caps (fail-closed). Reject oversized fields with a 400 before
+  // the INSERT so a solver cannot persist multi-MB rows. `sources` is bounded
+  // both in count and per-URL length; non-string entries are rejected too.
+  const contributor = typeof data.contributor === 'string' ? data.contributor : '';
+  const sources = Array.isArray(data.sources) ? data.sources : [];
+  if (
+    title.length > MAX_TITLE ||
+    category.length > MAX_CATEGORY ||
+    body.length > MAX_BODY ||
+    contributor.length > MAX_CONTRIBUTOR ||
+    sources.length > MAX_SOURCES ||
+    sources.some((s) => typeof s !== 'string' || s.length > MAX_SOURCE_URL)
+  ) {
+    return json({ ok: false, error: 'too-long' }, 400);
+  }
+
   // 4. Per-IP rate limit. Only the salted hash of the IP is ever
   // computed/stored — the raw IP is used solely as input to hashIp.
   const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
@@ -88,8 +115,8 @@ export async function handleContribute(request, env, now) {
       data.level,
       title,
       body,
-      JSON.stringify(Array.isArray(data.sources) ? data.sources : []),
-      data.anonymous ? null : data.contributor || null,
+      JSON.stringify(sources),
+      data.anonymous ? null : contributor || null,
       data.anonymous ? 1 : 0,
       'pending',
       ipHash,

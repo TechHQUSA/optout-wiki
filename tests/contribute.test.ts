@@ -109,6 +109,20 @@ test('non-string field (title: 123) -> 400, no insert', async () => {
   expect(db.rows.length).toBe(0);
 });
 
+test('over-length title -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, title: 'x'.repeat(201) }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('over-length body -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, body: 'x'.repeat(20001) }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
 test('rate limit exceeded -> 429, no insert', async () => {
   // window already at max (5) for this ip hash -> checkRateLimit returns false
   const db = makeRateLimitedDb(5);
