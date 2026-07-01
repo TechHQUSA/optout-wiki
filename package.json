@@ -1,0 +1,31 @@
+{
+  "name": "optout-wiki",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "license": "CC-BY-SA-4.0",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "check": "astro check",
+    "preview": "astro preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "astro": "^5.0.0",
+    "@astrojs/sitemap": "^3.2.0",
+    "@astrojs/rss": "^4.0.0",
+    "@fontsource/space-grotesk": "^5.1.0",
+    "@fontsource/ibm-plex-sans": "^5.1.0",
+    "@fontsource/ibm-plex-mono": "^5.1.0",
+    "altcha": "^1.0.0",
+    "altcha-lib": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@playwright/test": "^1.48.0",
+    "wrangler": "^3.80.0"
+  }
+}
