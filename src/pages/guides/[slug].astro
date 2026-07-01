@@ -1,0 +1,410 @@
+---
+// src/pages/guides/[slug].astro
+// The article template for a single published guide. Head/banner/sources/TOC
+// visual language ported from design_handoff_optout_wiki/article.dc.html
+// where practical, adapted from that prototype's sc-for/hardcoded mock data
+// (authors, step objects, related-guides sidebar) to this build's real
+// content-collection shape — this schema has no per-step/author fields, so
+// those prototype-only blocks are dropped. The functional requirements
+// (HowTo JSON-LD, last-verified banner, sources list gated on
+// entry.data.sources.length) take priority over pixel parity per the task
+// brief. TOC is derived from `render(entry)`'s `headings` (h2s only) rather
+// than the prototype's hardcoded `{{ toc }}` mock array.
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const guides = await getCollection('guides', (g) => g.data.published);
+  return guides.map((g) => ({ params: { slug: g.id }, props: { entry: g } }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const toc = headings.filter((h) => h.depth === 2);
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: entry.data.title,
+  description: entry.data.summary,
+};
+---
+<Base title={`${entry.data.title} | OptOut.wiki`} description={entry.data.summary}>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <Header current="guides" />
+  <main>
+    <section class="article-head">
+      <div class="breadcrumb">
+        <a href="/guides">Guides</a><span>/</span>
+        <span>{entry.data.category}</span><span>/</span>
+        <span class="current">{entry.data.title}</span>
+      </div>
+      <div class="tags">
+        <span class="level-tag" data-level={entry.data.level}>{entry.data.level}</span>
+        <span class="category-tag">{entry.data.category}</span>
+      </div>
+      <h1>{entry.data.title}</h1>
+      <p class="dek">{entry.data.summary}</p>
+    </section>
+
+    <div class="article-layout">
+      <article class="article-body">
+        <div class="vetting-banner">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M8.5 12l2.5 2.5 4.5-5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>
+            <strong>Last verified {dateFormatter.format(entry.data.lastVerified)}</strong>
+            {entry.data.sources.length > 0 &&
+              ` — ${entry.data.sources.length} source${entry.data.sources.length === 1 ? '' : 's'} cited.`}
+            {entry.data.sources.length > 0 && <a href="#sources">See sources &rarr;</a>}
+          </span>
+        </div>
+
+        <Content />
+
+        {entry.data.sources.length > 0 && (
+          <section id="sources" class="sources">
+            <h2>Sources</h2>
+            <ol>
+              {entry.data.sources.map((s) => (
+                <li><a href={s.url}>{s.label}</a></li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        <div class="improve-cta">
+          <div>
+            <div class="improve-title">Spot something out of date?</div>
+            <div class="improve-sub">Opt-out forms change constantly. Help the next person keep this current.</div>
+          </div>
+          <a href="/contribute" class="improve-link">Improve this guide</a>
+        </div>
+      </article>
+
+      {toc.length > 0 && (
+        <aside class="article-toc">
+          <div class="toc-label">On this page</div>
+          <nav>
+            {toc.map((h) => <a href={`#${h.slug}`}>{h.text}</a>)}
+          </nav>
+        </aside>
+      )}
+    </div>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 0 72px;
+  }
+  .article-head {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    padding: 34px 28px 30px;
+    margin-bottom: 36px;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .breadcrumb a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: var(--accent);
+  }
+  .breadcrumb .current {
+    color: var(--ink);
+  }
+  .tags {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .level-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+  .level-tag[data-level='HIGH'] {
+    background: color-mix(in srgb, #e5484d 16%, transparent);
+    color: #e5484d;
+  }
+  .level-tag[data-level='MED'] {
+    background: var(--accent-bright);
+    color: #16171c;
+  }
+  .category-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .article-head h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 42px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    margin: 0 0 16px;
+    max-width: 820px;
+  }
+  .article-head .dek {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0;
+  }
+  .article-layout {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: 1fr 230px;
+    gap: 48px;
+    align-items: start;
+  }
+  .article-body {
+    max-width: 720px;
+    min-width: 0;
+  }
+  .vetting-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 32px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .vetting-banner strong {
+    color: var(--ink);
+  }
+  .vetting-banner :global(a) {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .sources h2 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .sources ol {
+    list-style: none;
+    counter-reset: source;
+    margin: 0 0 36px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .sources li {
+    counter-increment: source;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+  }
+  .sources li::before {
+    content: counter(source) '.';
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    display: inline-block;
+    width: 26px;
+  }
+  .sources a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .sources a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .improve-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 22px 24px;
+  }
+  .improve-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .improve-sub {
+    font-size: 14.5px;
+    color: var(--muted);
+  }
+  .improve-link {
+    text-decoration: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+    font-size: 14.5px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .article-toc {
+    position: sticky;
+    top: 88px;
+  }
+  .toc-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .article-toc nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-left: 1px solid var(--border);
+  }
+  .article-toc nav a {
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 13.5px;
+    padding: 6px 0 6px 14px;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+  }
+  .article-toc nav a:hover {
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  /* Prose styling for markdown rendered via <Content />. That output is a
+     separate Astro-compiled component (its own scope id), so these rules
+     target it through :global() rather than the usual scoped selectors —
+     see Astro's content-collections styling guidance. */
+  .article-body :global(h2) {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 27px;
+    letter-spacing: -0.02em;
+    margin: 36px 0 14px;
+    scroll-margin-top: 88px;
+  }
+  .article-body :global(h3) {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 24px 0 8px;
+    scroll-margin-top: 88px;
+  }
+  .article-body :global(p) {
+    font-size: 16.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    margin: 0 0 16px;
+  }
+  .article-body :global(ul),
+  .article-body :global(ol) {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink);
+    padding-left: 22px;
+    margin: 0 0 20px;
+  }
+  .article-body :global(li) {
+    margin-bottom: 10px;
+  }
+  .article-body :global(li > p) {
+    margin: 0;
+  }
+  .article-body :global(a) {
+    color: var(--accent);
+  }
+  .article-body :global(blockquote) {
+    background: color-mix(in srgb, var(--accent-bright) 22%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent-bright) 50%, var(--border));
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 0 0 32px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .article-body :global(blockquote p) {
+    margin: 0;
+  }
+  .article-body :global(pre) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 0 0 36px;
+  }
+  .article-body :global(code) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9em;
+  }
+  .article-body :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+  .article-body :global(:not(pre) > code) {
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: 2px 5px;
+  }
+
+  @media (max-width: 900px) {
+    .article-layout {
+      grid-template-columns: 1fr;
+    }
+    .article-toc {
+      display: none;
+    }
+  }
+</style>
