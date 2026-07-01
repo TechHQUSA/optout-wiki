@@ -40,6 +40,16 @@ const { categories } = Astro.props;
 
   search?.addEventListener('input', apply);
   cat?.addEventListener('change', apply);
+
+  // Honor an initial `?q=` query param on load so links like
+  // `/guides?q=toyota` (e.g. the home page's WebSite JSON-LD SearchAction,
+  // which Google can surface as a Sitelinks Search Box) land pre-filtered
+  // instead of silently ignoring the search term.
+  const initialQ = new URLSearchParams(window.location.search).get('q');
+  if (initialQ && search) {
+    search.value = initialQ;
+    apply();
+  }
 </script>
 
 <style>
