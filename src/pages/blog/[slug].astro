@@ -1,0 +1,181 @@
+---
+// src/pages/blog/[slug].astro
+// The article template for a single published blog post. Mirrors the
+// getStaticPaths/render(entry)/<Content/> pattern from
+// src/pages/guides/[slug].astro, trimmed to the blog schema's shape (no
+// level/category/sources/TOC — just title, date, summary, body).
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { getCollection, render } from 'astro:content';
+import { formatVerified } from '../../lib/format';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', (p) => !p.data.draft);
+  return posts.map((p) => ({ params: { slug: p.id }, props: { entry: p } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: entry.data.title,
+  description: entry.data.summary,
+  datePublished: entry.data.date.toISOString(),
+};
+// See src/pages/guides/[slug].astro for why `<` is escaped here: JSON.stringify
+// does not escape `</script>`/`<!--` inside string values, so an untrusted
+// title/summary could break out of this <script> tag otherwise.
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+---
+<Base title={`${entry.data.title} | OptOut.wiki`} description={entry.data.summary}>
+  <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />
+  <Header current="blog" />
+  <main>
+    <section class="post-head">
+      <div class="breadcrumb">
+        <a href="/blog">Blog</a><span>/</span>
+        <span class="current">{entry.data.title}</span>
+      </div>
+      <h1>{entry.data.title}</h1>
+      <p class="dek">{entry.data.summary}</p>
+      <div class="post-date">{formatVerified(entry.data.date)}</div>
+    </section>
+
+    <article class="post-body">
+      <Content />
+    </article>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 28px 72px;
+  }
+  .post-head {
+    border-bottom: 1px solid var(--border);
+    padding: 34px 0 30px;
+    margin-bottom: 36px;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .breadcrumb a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: var(--accent);
+  }
+  .breadcrumb .current {
+    color: var(--ink);
+  }
+  .post-head h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 42px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    margin: 0 0 16px;
+  }
+  .post-head .dek {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .post-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  /* Prose styling for markdown rendered via <Content />, targeted through
+     :global() since it's a separately-scoped Astro-compiled component — see
+     src/pages/guides/[slug].astro for the same pattern/rationale. */
+  .post-body :global(h2) {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 27px;
+    letter-spacing: -0.02em;
+    margin: 36px 0 14px;
+  }
+  .post-body :global(h3) {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 24px 0 8px;
+  }
+  .post-body :global(p) {
+    font-size: 16.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    margin: 0 0 16px;
+  }
+  .post-body :global(ul),
+  .post-body :global(ol) {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink);
+    padding-left: 22px;
+    margin: 0 0 20px;
+  }
+  .post-body :global(li) {
+    margin-bottom: 10px;
+  }
+  .post-body :global(li > p) {
+    margin: 0;
+  }
+  .post-body :global(a) {
+    color: var(--accent);
+  }
+  .post-body :global(blockquote) {
+    background: color-mix(in srgb, var(--accent-bright) 22%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent-bright) 50%, var(--border));
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 0 0 32px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .post-body :global(blockquote p) {
+    margin: 0;
+  }
+  .post-body :global(pre) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 0 0 36px;
+  }
+  .post-body :global(code) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9em;
+  }
+  .post-body :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+  .post-body :global(:not(pre) > code) {
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: 2px 5px;
+  }
+</style>
