@@ -30,6 +30,28 @@ export function isHoneypotTripped(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+// `rate_limits` has one row per unique ip_hash ever seen; nothing ever
+// deletes a row on its own (a "blocked" ip_hash just stops updating).
+// Left alone the table grows without bound. There's no Cron Trigger wired
+// for this project (Pages Functions don't get one without a separate
+// Worker), so instead of a scheduled job we piggyback a cleanup sweep onto
+// the one code path that already writes to this table on a cold/reset
+// window — cheap (one extra bounded DELETE) and doesn't add a new
+// always-on cost to the hot (already-in-window) path.
+const RATE_LIMIT_STALE_MS = 24 * 60 * 60 * 1000; // 24h — well past any realistic windowMs
+
+/**
+ * Deletes `rate_limits` rows whose window started more than `staleMs` ago.
+ * Exported separately so it's directly unit-testable.
+ *
+ * @param {{prepare: (sql: string) => {bind: (...args: unknown[]) => {run: () => Promise<any>}}}} db D1-like binding
+ * @param {number} now current time in ms
+ * @param {number} [staleMs]
+ */
+export async function sweepStaleRateLimits(db, now, staleMs = RATE_LIMIT_STALE_MS) {
+  await db.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(now - staleMs).run();
+}
+
 /**
  * Fixed-window rate limiter backed by the `rate_limits` D1 table.
  * Creates the row on first request in a window, increments on subsequent
@@ -45,6 +67,7 @@ export function isHoneypotTripped(value) {
 export async function checkRateLimit(db, ipHash, now, windowMs, max) {
   const row = await db.prepare('SELECT window_start, count FROM rate_limits WHERE ip_hash = ?').bind(ipHash).first();
   if (!row || now - row.window_start > windowMs) {
+    await sweepStaleRateLimits(db, now);
     await db.prepare('INSERT OR REPLACE INTO rate_limits (ip_hash, window_start, count) VALUES (?, ?, 1)').bind(ipHash, now).run();
     return true;
   }
