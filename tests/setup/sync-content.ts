@@ -39,7 +39,16 @@ import { join } from 'node:path';
 
 export default function setup() {
   const root = process.cwd();
-  execFileSync('npx', ['astro', 'sync'], { stdio: 'inherit', cwd: root });
+  // Run a full `astro build` (not just `astro sync`) exactly once, here in
+  // globalSetup, BEFORE any test file runs. `build` does everything `sync`
+  // does (it populates the same cacheDir data store we mirror below) AND emits
+  // `dist/`, so the build-output guards (tests/build.test.ts, tests/404.test.ts)
+  // can assert on `dist/` without each shelling out their own `astro build`.
+  // Doing it here is also what makes the suite race-free: a build re-syncs the
+  // content store, and running that concurrently with the Container-API tests
+  // that read `.astro/data-store.json` was an intermittent failure source.
+  // One build, before the parallel phase, removes that window entirely.
+  execFileSync('npx', ['astro', 'build'], { stdio: 'inherit', cwd: root });
 
   const cacheStore = join(root, 'node_modules', '.astro', 'data-store.json');
   const devAstroDir = join(root, '.astro');
