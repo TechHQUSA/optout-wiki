@@ -72,6 +72,35 @@ function req(body: unknown) {
 const env = { DB: null, ALTCHA_HMAC_SECRET: 's', ALTCHA_HMAC_KEY_SECRET: 'k', IP_SALT: 'salt' };
 const valid = { category: 'Cars', level: 'MED', title: 'T', body: 'B', sources: [], anonymous: true, altcha: 'good', website: '' };
 
+test('submission INSERT persists no ip_hash (rate-limit still runs)', async () => {
+  // Capture the SQL of the submissions INSERT and assert it has no ip_hash
+  // column — an "anonymous" row must not carry an IP-derived value that lets
+  // posts be clustered. The rate limiter (rate_limits table) still uses the
+  // hashed IP; only the submissions row drops it.
+  let insertSql = '';
+  let rateLimitSelected = false;
+  const db = {
+    prepare(sql: string) {
+      if (sql.startsWith('INSERT INTO submissions')) insertSql = sql;
+      if (sql.startsWith('SELECT window_start, count FROM rate_limits')) rateLimitSelected = true;
+      return {
+        bind() {
+          return {
+            async first() {
+              return null;
+            },
+            async run() {},
+          };
+        },
+      };
+    },
+  };
+  const res = await handleContribute(req(valid), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(200);
+  expect(insertSql).not.toContain('ip_hash');
+  expect(rateLimitSelected).toBe(true); // rate limiting still enforced
+});
+
 test('happy path inserts a pending submission', async () => {
   const db = makeDb();
   const res = await handleContribute(req(valid), { ...env, DB: db }, 1000);
@@ -176,6 +205,53 @@ test('over-length source URL (>500 chars) -> 400, no insert, ALTCHA never spent'
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
   expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('javascript: source URL -> 400, no insert, ALTCHA never spent', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...valid, sources: ['javascript:alert(1)'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('data: source URL -> 400, no insert, ALTCHA never spent', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...valid, sources: ['data:text/html,<script>alert(1)</script>'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('non-URL source string (no scheme) -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...valid, sources: ['not a url'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('http/https source URLs are accepted', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...valid, sources: ['http://example.com/a', 'https://example.com/b'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows.length).toBe(1);
 });
 
 test('field lengths exactly at the cap are accepted (boundary)', async () => {

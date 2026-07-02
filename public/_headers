@@ -1,7 +1,19 @@
+# script-src: no 'unsafe-inline'. The single inline script (no-flash theme in
+#   Base.astro) is allow-listed by its sha256 hash; every other script is an
+#   external same-origin /_astro/*.js bundle (assetsInlineLimit:0). If that
+#   inline script changes, regenerate the hash — tests/csp.test.ts enforces it.
+#   <script type="application/ld+json"> is data, not executed, so script-src
+#   does not apply to it.
+# style-src: keeps 'unsafe-inline'. Inline style="" ATTRIBUTES (Footer, honeypot,
+#   SVGs) cannot be hashed — only <style> elements can — so dropping it would
+#   need a full refactor to classes. Acceptable because the markdown sanitizer
+#   (rehype-sanitize, astro.config.mjs) strips style/class from untrusted guide
+#   HTML, so a submission cannot inject CSS; only same-origin authored styles
+#   remain inline.
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'sha256-IcpbhC3btAGPv1dNUgFIvaoKOY1w4Wi/6wDWD9mg1Wg='; worker-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'

@@ -6,6 +6,7 @@
 //
 //   1. Honeypot (`website` field filled)        -> 400, generic response
 //   2. Required-field validation + length caps  -> 400
+//   2c. Source URLs must be http(s)              -> 400 (blocks javascript:/data:)
 //   3. Per-IP rate limit (5 / hour)              -> 429
 //   4. ALTCHA proof-of-work solution             -> 400
 //   5. INSERT into `submissions` (status=pending) -> 200 {ok:true,id}
@@ -20,9 +21,11 @@
 //
 // PRIVACY: the raw client IP is only ever used in-memory to derive
 // `ipHash` (salted SHA-256, see `_shared/security.js`); it is never
-// logged or persisted. Only `ip_hash` is stored, matching the Task 11
-// D1 schema (migrations/0001_submissions.sql), which has no raw-ip
-// column.
+// logged or persisted. The hash is used ONLY for rate-limiting (the
+// `rate_limits` table) — the `submissions` row stores no IP-derived
+// value at all, so an "anonymous" submission can't be linked to an
+// origin or clustered with a contributor's other posts. See the schema
+// note in migrations/0001_submissions.sql.
 //
 // The honeypot rejection (step 1) intentionally returns the same
 // generic `{ok:false}` 400 shape as other failures — it must not leak
@@ -47,6 +50,22 @@ const MAX_SOURCES = 20; // number of source URLs
 const MAX_SOURCE_URL = 500; // chars per source URL
 
 const json = (obj, status) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+
+// A source must parse as a URL AND use an http(s) scheme. Anything else
+// (javascript:, data:, mailto:, a non-URL string) is rejected: these values
+// are eventually rendered as `<a href>` on a published guide, so a
+// `javascript:`/`data:` source is a stored-XSS / malware-link vector. Enforced
+// server-side here, not just in the content schema, so a bad URL never reaches
+// the moderation queue in the first place.
+function isHttpUrl(value) {
+  let u;
+  try {
+    u = new URL(value);
+  } catch {
+    return false;
+  }
+  return u.protocol === 'http:' || u.protocol === 'https:';
+}
 
 /**
  * Testable core of the contribute endpoint. Pure function of
@@ -100,6 +119,14 @@ export async function handleContribute(request, env, now) {
     return json({ ok: false, error: 'too-long' }, 400);
   }
 
+  // 2c. Source URL scheme (fail-closed). Every source must be an http(s) URL;
+  // reject javascript:/data:/mailto:/garbage before it can be queued and later
+  // rendered as an <a href> on a published guide. Runs before the ALTCHA gate
+  // so a rejected payload never spends the client's proof-of-work.
+  if (!sources.every(isHttpUrl)) {
+    return json({ ok: false, error: 'bad-source' }, 400);
+  }
+
   // 3. Per-IP rate limit. Only the salted hash of the IP is ever
   // computed/stored — the raw IP is used solely as input to hashIp.
   const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
@@ -113,10 +140,14 @@ export async function handleContribute(request, env, now) {
   // Deliberately last of the gates — see the file-header note on why.
   if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
 
-  // 5. Insert as a pending submission for moderation.
+  // 5. Insert as a pending submission for moderation. The submission row
+  // deliberately stores NO ip_hash — the salted IP hash is used only above for
+  // rate-limiting (rate_limits table) and is never persisted next to the
+  // content, so "anonymous" submissions can't be clustered by origin. See the
+  // schema note in migrations/0001_submissions.sql.
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    'INSERT INTO submissions (id, created_at, category, level, title, body, sources, contributor, anonymous, status, ip_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO submissions (id, created_at, category, level, title, body, sources, contributor, anonymous, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
   )
     .bind(
       id,
@@ -129,7 +160,6 @@ export async function handleContribute(request, env, now) {
       data.anonymous ? null : contributor || null,
       data.anonymous ? 1 : 0,
       'pending',
-      ipHash,
     )
     .run();
 
