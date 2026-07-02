@@ -1,8 +1,18 @@
 // tests/contribute.test.ts
-import { expect, test, vi } from 'vitest';
+import { expect, test, vi, beforeEach } from 'vitest';
 import { handleContribute } from '../functions/api/contribute.js';
+import { verifyAltcha } from '../functions/_shared/altcha.js';
 
-vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: async (p: string) => p === 'good' }));
+// A trackable mock (not a plain async fn) so tests can assert verifyAltcha
+// was never called for requests rejected on cheaper grounds (honeypot,
+// invalid/oversized fields, rate limit) — verifying a solution also spends
+// it, so those paths must not reach it at all. See the check-order note
+// atop functions/api/contribute.js.
+vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: vi.fn(async (p: string) => p === 'good') }));
+
+beforeEach(() => {
+  vi.mocked(verifyAltcha).mockClear();
+});
 
 function makeDb() {
   const rows: unknown[] = [];
@@ -67,13 +77,15 @@ test('happy path inserts a pending submission', async () => {
   const res = await handleContribute(req(valid), { ...env, DB: db }, 1000);
   expect(res.status).toBe(200);
   expect(db.rows.length).toBe(1);
+  expect(verifyAltcha).toHaveBeenCalledTimes(1);
 });
 
-test('honeypot filled -> 400, no insert', async () => {
+test('honeypot filled -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, website: 'bot' }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
 test('bad altcha -> 400', async () => {
@@ -81,13 +93,15 @@ test('bad altcha -> 400', async () => {
   const res = await handleContribute(req({ ...valid, altcha: 'bad' }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).toHaveBeenCalledTimes(1);
 });
 
-test('missing required field -> 400', async () => {
+test('missing required field -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, title: '' }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
 test('null JSON body -> 400, no throw, no insert', async () => {
@@ -102,35 +116,39 @@ test('null JSON body -> 400, no throw, no insert', async () => {
   expect(db.rows.length).toBe(0);
 });
 
-test('non-string field (title: 123) -> 400, no insert', async () => {
+test('non-string field (title: 123) -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, title: 123 }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('over-length title -> 400, no insert', async () => {
+test('over-length title -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, title: 'x'.repeat(201) }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('over-length body -> 400, no insert', async () => {
+test('over-length body -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, body: 'x'.repeat(20001) }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('over-length category -> 400, no insert', async () => {
+test('over-length category -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(req({ ...valid, category: 'x'.repeat(65) }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('over-length contributor -> 400, no insert', async () => {
+test('over-length contributor -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const res = await handleContribute(
     req({ ...valid, anonymous: false, contributor: 'x'.repeat(121) }),
@@ -139,22 +157,25 @@ test('over-length contributor -> 400, no insert', async () => {
   );
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('too many sources (>20) -> 400, no insert', async () => {
+test('too many sources (>20) -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const sources = Array.from({ length: 21 }, (_, i) => `https://example.com/${i}`);
   const res = await handleContribute(req({ ...valid, sources }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
-test('over-length source URL (>500 chars) -> 400, no insert', async () => {
+test('over-length source URL (>500 chars) -> 400, no insert, ALTCHA never spent', async () => {
   const db = makeDb();
   const sources = ['https://example.com/' + 'x'.repeat(500)];
   const res = await handleContribute(req({ ...valid, sources }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(400);
   expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });
 
 test('field lengths exactly at the cap are accepted (boundary)', async () => {
@@ -174,12 +195,18 @@ test('field lengths exactly at the cap are accepted (boundary)', async () => {
   );
   expect(res.status).toBe(200);
   expect(db.rows.length).toBe(1);
+  expect(verifyAltcha).toHaveBeenCalledTimes(1);
 });
 
-test('rate limit exceeded -> 429, no insert', async () => {
+test('rate limit exceeded -> 429, no insert, ALTCHA never spent', async () => {
   // window already at max (5) for this ip hash -> checkRateLimit returns false
   const db = makeRateLimitedDb(5);
   const res = await handleContribute(req(valid), { ...env, DB: db }, 1000);
   expect(res.status).toBe(429);
   expect(db.rows.length).toBe(0);
+  // The regression this closes: verifying a solution also spends it
+  // (single-use), so a request that was always going to be
+  // rate-limited must never burn the client's proof-of-work for
+  // nothing — the rate-limit check must run BEFORE verifyAltcha.
+  expect(verifyAltcha).not.toHaveBeenCalled();
 });

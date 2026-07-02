@@ -4,11 +4,19 @@
 // writes it to D1 as a `pending` row for moderation. Checks run in this
 // fixed order, each a hard gate (fail-closed) before the next runs:
 //
-//   1. Honeypot (`website` field filled)      -> 400, generic response
-//   2. ALTCHA proof-of-work solution           -> 400
-//   3. Required-field validation                -> 400
-//   4. Per-IP rate limit (5 / hour)             -> 429
+//   1. Honeypot (`website` field filled)        -> 400, generic response
+//   2. Required-field validation + length caps  -> 400
+//   3. Per-IP rate limit (5 / hour)              -> 429
+//   4. ALTCHA proof-of-work solution             -> 400
 //   5. INSERT into `submissions` (status=pending) -> 200 {ok:true,id}
+//
+// ALTCHA verification runs LAST, deliberately after every cheap
+// (no-DB) check and the rate limit: verifying a solution also claims
+// its signature as spent (single-use — see _shared/altcha.js), so a
+// request that was always going to be rejected for an unrelated
+// reason (an oversized field, an exhausted rate-limit window) must
+// never burn the client's proof-of-work for nothing. Only a request
+// that would otherwise succeed reaches the ALTCHA check.
 //
 // PRIVACY: the raw client IP is only ever used in-memory to derive
 // `ipHash` (salted SHA-256, see `_shared/security.js`); it is never
@@ -69,18 +77,14 @@ export async function handleContribute(request, env, now) {
   // no indication it was the honeypot specifically that tripped.
   if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
 
-  // 2. ALTCHA proof-of-work solution must verify, not be expired, and not
-  // have been used before (verifyAltcha claims the signature as spent).
-  if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
-
-  // 3. Required-field validation. Non-string fields become '' (empty)
+  // 2. Required-field validation. Non-string fields become '' (empty)
   // rather than throwing, so they cleanly fail the non-empty check below.
   const title = typeof data.title === 'string' ? data.title.trim() : '';
   const body = typeof data.body === 'string' ? data.body.trim() : '';
   const category = typeof data.category === 'string' ? data.category.trim() : '';
   if (!title || !body || !category || !LEVELS.has(data.level)) return json({ ok: false, error: 'invalid' }, 400);
 
-  // 3b. Length caps (fail-closed). Reject oversized fields with a 400 before
+  // 2b. Length caps (fail-closed). Reject oversized fields with a 400 before
   // the INSERT so a solver cannot persist multi-MB rows. `sources` is bounded
   // both in count and per-URL length; non-string entries are rejected too.
   const contributor = typeof data.contributor === 'string' ? data.contributor : '';
@@ -96,13 +100,18 @@ export async function handleContribute(request, env, now) {
     return json({ ok: false, error: 'too-long' }, 400);
   }
 
-  // 4. Per-IP rate limit. Only the salted hash of the IP is ever
+  // 3. Per-IP rate limit. Only the salted hash of the IP is ever
   // computed/stored — the raw IP is used solely as input to hashIp.
   const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
   const ipHash = await hashIp(ip, env.IP_SALT);
   if (!(await checkRateLimit(env.DB, ipHash, now, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX))) {
     return json({ ok: false, error: 'rate' }, 429);
   }
+
+  // 4. ALTCHA proof-of-work solution must verify, not be expired, and not
+  // have been used before (verifyAltcha claims the signature as spent).
+  // Deliberately last of the gates — see the file-header note on why.
+  if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
 
   // 5. Insert as a pending submission for moderation.
   const id = crypto.randomUUID();

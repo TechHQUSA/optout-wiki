@@ -1,0 +1,108 @@
+---
+// src/pages/404.astro
+// Astro's convention: a page at this exact path builds to dist/404.html,
+// which Cloudflare Pages recognizes natively (any directory level, no
+// _redirects rule needed) and serves — with a genuine HTTP 404 status —
+// for any unmatched static asset path. Without this file the platform
+// falls back to the site's normal per-route behavior, which for this build
+// means a typo'd/stale guide URL silently 200s with the homepage's content
+// instead of a clear "not found" (a soft-404: bad for users who get no
+// signal their link was wrong, and bad for SEO — search engines expect a
+// real 404, not a 200 duplicate of the homepage).
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Page not found | OptOut.wiki"
+  description="This page doesn't exist — the link may be out of date, or the guide may have moved."
+>
+  <Header />
+  <main class="not-found">
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>404</p>
+    <h1>Page not found.</h1>
+    <p class="dek">
+      That link is out of date, or the page never existed. It happens — links rot, guides get
+      renamed. Try one of these instead:
+    </p>
+    <div class="actions">
+      <a href="/" class="btn-primary">Go home</a>
+      <a href="/guides" class="btn-secondary">Browse guides</a>
+    </div>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .not-found {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 88px 20px 96px;
+    text-align: center;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 6px 14px;
+    margin: 0 0 24px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(32px, 5vw, 48px);
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  .dek {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0 0 32px;
+  }
+  .actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 12px 22px;
+    border-radius: 9px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.06);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    background: var(--surface-2);
+  }
+</style>
