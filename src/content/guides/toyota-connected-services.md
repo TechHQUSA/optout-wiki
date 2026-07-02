@@ -8,9 +8,9 @@ sources:
   - { label: "It's Official: Cars Are the Worst Product Category for Privacy (Mozilla *Privacy Not Included)", url: "https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/" }
   - { label: "Automakers Are Sharing Driving Behavior With Insurance Companies (The New York Times)", url: "https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html" }
   - { label: "Request your consumer disclosure report (LexisNexis Risk Solutions)", url: "https://consumer.risk.lexisnexis.com/" }
-  - { label: "Connected Services data settings & deactivation (Toyota owner support)", url: "https://www.toyota.com/owners/connected-services.html" }
+  - { label: "Vehicle Data Collection & Opting Out (Toyota owner support)", url: "https://support.toyota.com/s/topic/0TOWP000000H3r94AC/vehicle-data-collection-opting-out?language=en_US" }
   - { label: "Toyota Privacy Portal", url: "https://www.toyota.com/privacyvts/" }
-lastVerified: 2026-06-24
+lastVerified: 2026-07-01
 published: true
 ---
 
@@ -59,5 +59,5 @@ Address: [address on file]
 2. [It's Official: Cars Are the Worst Product Category for Privacy](https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/) — Mozilla *Privacy Not Included
 3. [Automakers shared driving data with insurers, raising rates](https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html) — The New York Times, 2024
 4. [Request your consumer disclosure report](https://consumer.risk.lexisnexis.com/) — LexisNexis Risk Solutions
-5. [Connected Services data settings & deactivation](https://www.toyota.com/owners/connected-services.html) — Toyota owner support
+5. [Vehicle Data Collection & Opting Out](https://support.toyota.com/s/topic/0TOWP000000H3r94AC/vehicle-data-collection-opting-out?language=en_US) — Toyota owner support
 6. [Toyota Privacy Portal](https://www.toyota.com/privacyvts/) — Toyota
