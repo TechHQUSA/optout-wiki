@@ -4,7 +4,7 @@ category: "Cars"
 level: "MED"
 summary: "Newer Toyotas stream location, trip history, and driving behavior to Toyota and to data brokers like LexisNexis, which sell it to insurers. Here's how to shut off every channel, in order of impact."
 sources:
-  - { label: "Vehicle Privacy Report — data-sharing lookup by VIN (Privacy4Cars)", url: "https://privacy4cars.com/" }
+  - { label: "Vehicle Privacy Report: data-sharing lookup by VIN (Privacy4Cars)", url: "https://privacy4cars.com/" }
   - { label: "It's Official: Cars Are the Worst Product Category for Privacy (Mozilla *Privacy Not Included)", url: "https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/" }
   - { label: "Automakers Are Sharing Driving Behavior With Insurance Companies (The New York Times)", url: "https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html" }
   - { label: "Request your consumer disclosure report (LexisNexis Risk Solutions)", url: "https://consumer.risk.lexisnexis.com/" }
@@ -20,7 +20,7 @@ published: true
 
 If your Toyota was built after roughly 2018 and has the Connected Services package, its onboard Data Communication Module (DCM) has its own cellular modem. It can report precise GPS location, speed, hard-braking and acceleration events, seatbelt use, trip times, and the contacts and call logs you sync over Bluetooth. Much of this leaves the car whether or not you ever opened the app.
 
-The fastest way to see your own exposure is to pull a free Vehicle Privacy Report for your VIN, which lists exactly who your car shares data with. Do that first — it tells you which of the steps below you need.
+The fastest way to see your own exposure is to pull a free Vehicle Privacy Report for your VIN, which lists exactly who your car shares data with. Do that first. It tells you which of the steps below you need.
 
 **Tip:** Pull your LexisNexis Risk Solutions consumer disclosure report at the same time. If your driving data is already being sold to insurers, it shows up there, and you will want a deletion request in flight before you finish.
 
@@ -55,9 +55,9 @@ Address: [address on file]
 
 ## Sources
 
-1. [Vehicle Privacy Report — data-sharing lookup by VIN](https://privacy4cars.com/) — Privacy4Cars
-2. [It's Official: Cars Are the Worst Product Category for Privacy](https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/) — Mozilla *Privacy Not Included
-3. [Automakers shared driving data with insurers, raising rates](https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html) — The New York Times, 2024
-4. [Request your consumer disclosure report](https://consumer.risk.lexisnexis.com/) — LexisNexis Risk Solutions
-5. [Vehicle Data Collection & Opting Out](https://support.toyota.com/s/topic/0TOWP000000H3r94AC/vehicle-data-collection-opting-out?language=en_US) — Toyota owner support
-6. [Toyota Privacy Portal](https://www.toyota.com/privacyvts/) — Toyota
+1. [Vehicle Privacy Report: data-sharing lookup by VIN](https://privacy4cars.com/) - Privacy4Cars
+2. [It's Official: Cars Are the Worst Product Category for Privacy](https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/) - Mozilla *Privacy Not Included
+3. [Automakers shared driving data with insurers, raising rates](https://www.nytimes.com/2024/03/11/technology/carmakers-driver-tracking-insurance.html) - The New York Times, 2024
+4. [Request your consumer disclosure report](https://consumer.risk.lexisnexis.com/) - LexisNexis Risk Solutions
+5. [Vehicle Data Collection & Opting Out](https://support.toyota.com/s/topic/0TOWP000000H3r94AC/vehicle-data-collection-opting-out?language=en_US) - Toyota owner support
+6. [Toyota Privacy Portal](https://www.toyota.com/privacyvts/) - Toyota
