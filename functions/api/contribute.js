@@ -69,8 +69,9 @@ export async function handleContribute(request, env, now) {
   // no indication it was the honeypot specifically that tripped.
   if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
 
-  // 2. ALTCHA proof-of-work solution must verify (and not be expired).
-  if (!(await verifyAltcha(data.altcha, env))) return json({ ok: false, error: 'altcha' }, 400);
+  // 2. ALTCHA proof-of-work solution must verify, not be expired, and not
+  // have been used before (verifyAltcha claims the signature as spent).
+  if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
 
   // 3. Required-field validation. Non-string fields become '' (empty)
   // rather than throwing, so they cleanly fail the non-empty check below.
