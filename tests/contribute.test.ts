@@ -123,6 +123,59 @@ test('over-length body -> 400, no insert', async () => {
   expect(db.rows.length).toBe(0);
 });
 
+test('over-length category -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, category: 'x'.repeat(65) }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('over-length contributor -> 400, no insert', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...valid, anonymous: false, contributor: 'x'.repeat(121) }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('too many sources (>20) -> 400, no insert', async () => {
+  const db = makeDb();
+  const sources = Array.from({ length: 21 }, (_, i) => `https://example.com/${i}`);
+  const res = await handleContribute(req({ ...valid, sources }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('over-length source URL (>500 chars) -> 400, no insert', async () => {
+  const db = makeDb();
+  const sources = ['https://example.com/' + 'x'.repeat(500)];
+  const res = await handleContribute(req({ ...valid, sources }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('field lengths exactly at the cap are accepted (boundary)', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({
+      ...valid,
+      title: 'x'.repeat(200),
+      category: 'x'.repeat(64),
+      body: 'x'.repeat(20000),
+      anonymous: false,
+      contributor: 'x'.repeat(120),
+      sources: Array.from({ length: 20 }, () => 'https://example.com/' + 'x'.repeat(480)), // 500 chars each
+    }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows.length).toBe(1);
+});
+
 test('rate limit exceeded -> 429, no insert', async () => {
   // window already at max (5) for this ip hash -> checkRateLimit returns false
   const db = makeRateLimitedDb(5);

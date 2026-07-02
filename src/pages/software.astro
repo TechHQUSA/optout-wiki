@@ -17,6 +17,7 @@ import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { getCollection } from 'astro:content';
+import { safeJsonLd } from '../lib/json-ld';
 
 const sw = await getCollection('software');
 
@@ -50,11 +51,8 @@ const jsonLd = {
     ],
   },
 };
-// JSON.stringify does not escape `</script>` or `<!--` inside string values,
-// so a name/summary containing those sequences could break out of this
-// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
-// identically but browsers can't interpret as markup.
-const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+// <script> tag; see src/lib/json-ld.ts for why.
+const jsonLdSafe = safeJsonLd(jsonLd);
 ---
 <Base
   title="Private software directory | OptOut.wiki"

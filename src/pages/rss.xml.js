@@ -19,7 +19,7 @@ export async function GET(context) {
       title: p.data.title,
       description: p.data.summary,
       pubDate: p.data.date,
-      link: `/blog/${p.id}/`,
+      link: `/blog/${p.id}`,
     })),
   });
 }

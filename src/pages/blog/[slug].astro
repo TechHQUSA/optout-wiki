@@ -9,6 +9,7 @@ import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { getCollection, render } from 'astro:content';
 import { formatVerified } from '../../lib/format';
+import { safeJsonLd } from '../../lib/json-ld';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', (p) => !p.data.draft);
@@ -25,10 +26,8 @@ const jsonLd = {
   description: entry.data.summary,
   datePublished: entry.data.date.toISOString(),
 };
-// See src/pages/guides/[slug].astro for why `<` is escaped here: JSON.stringify
-// does not escape `</script>`/`<!--` inside string values, so an untrusted
-// title/summary could break out of this <script> tag otherwise.
-const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+// <script> tag; see src/lib/json-ld.ts for why.
+const jsonLdSafe = safeJsonLd(jsonLd);
 ---
 <Base title={`${entry.data.title} | OptOut.wiki`} description={entry.data.summary}>
   <script slot="head" type="application/ld+json" set:html={jsonLdSafe} />

@@ -22,6 +22,7 @@ import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import ContributeForm from '../components/ContributeForm.astro';
+import { safeJsonLd } from '../lib/json-ld';
 
 const pipeline = [
   {
@@ -79,9 +80,8 @@ const jsonLd = {
 };
 // JSON.stringify does not escape `</script>` or `<!--` inside string values,
 // so a step name/body containing those sequences could break out of this
-// <script> tag. Escape `<` to its unicode form, which JSON parsers treat
-// identically but browsers can't interpret as markup.
-const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+// <script> tag; see src/lib/json-ld.ts for why.
+const jsonLdSafe = safeJsonLd(jsonLd);
 ---
 <Base
   title="Contribute a guide | OptOut.wiki"
