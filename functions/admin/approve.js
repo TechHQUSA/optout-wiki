@@ -6,6 +6,7 @@
 import { requireModerator } from '../_shared/access.js';
 import { escapeHtml } from '../_shared/html.js';
 import { generateGuideMarkdown } from '../_shared/guide-markdown.js';
+import { adminHtml, adminText, isCrossSiteWrite } from '../_shared/admin.js';
 
 function parseSources(s) {
   try {
@@ -20,9 +21,11 @@ export async function onRequestPost({ request, env }) {
   const denied = await requireModerator(request, env);
   if (denied) return denied;
 
+  if (isCrossSiteWrite(request)) return adminText('cross-site', 403);
+
   const form = await request.formData();
   const id = form.get('id');
-  if (!id) return new Response('bad-request', { status: 400 });
+  if (typeof id !== 'string' || !id) return adminText('bad-request', 400);
 
   await env.DB.prepare("UPDATE submissions SET status = 'approved' WHERE id = ?").bind(id).run();
   const row = await env.DB.prepare(
@@ -30,14 +33,12 @@ export async function onRequestPost({ request, env }) {
   )
     .bind(id)
     .first();
-  if (!row) return new Response('not-found', { status: 404 });
+  if (!row) return adminText('not-found', 404);
 
   const today = new Date().toISOString().slice(0, 10);
   const { filename, markdown } = generateGuideMarkdown({ ...row, sources: parseSources(row.sources) }, today);
 
-  return new Response(renderApprove(filename, markdown), {
-    headers: { 'content-type': 'text/html; charset=utf-8' },
-  });
+  return adminHtml(renderApprove(filename, markdown));
 }
 
 function renderApprove(filename, markdown) {

@@ -20,10 +20,7 @@ test('_headers ships the exact CSP and no external hosts', () => {
   expect(h).toContain('interest-cohort=()');       // no-FLoC
 });
 
-test('admin surface is excluded from indexing', () => {
-  const headers = readFileSync('public/_headers', 'utf8');
-  expect(headers).toMatch(/\/admin\*/);
-  expect(headers).toMatch(/X-Robots-Tag:\s*noindex/i);
+test('robots.txt disallows the admin surface', () => {
   const robots = readFileSync('public/robots.txt', 'utf8');
   expect(robots).toMatch(/Disallow:\s*\/admin/i);
 });

@@ -88,11 +88,13 @@ async function getJwks(teamDomain, fetchImpl, now) {
   let body;
   try {
     const res = await fetchImpl(`https://${teamDomain}/cdn-cgi/access/certs`);
+    if (!res.ok) return jwksCache.keys || [];
     body = await res.json();
   } catch {
-    return jwksCache.keys || []; // fail closed: no keys => no verification passes
+    return jwksCache.keys || [];
   }
-  jwksCache = { keys: body.keys || [], at: now };
+  if (!Array.isArray(body.keys) || body.keys.length === 0) return jwksCache.keys || [];
+  jwksCache = { keys: body.keys, at: now };
   return jwksCache.keys;
 }
 

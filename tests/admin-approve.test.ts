@@ -56,6 +56,8 @@ test('approve of a missing row is a 404', async () => {
 
 test('approve returns the 403 when the gate denies', async () => {
   vi.mocked(requireModerator).mockResolvedValue(new Response('Forbidden', { status: 403 }));
-  const res = await onRequestPost({ request: form('a1'), env: { DB: makeDb({ title: 'x', category: 'Cars', level: 'MED', body: 'b', sources: '[]' }) } });
+  const db = makeDb({ title: 'x', category: 'Cars', level: 'MED', body: 'b', sources: '[]' });
+  const res = await onRequestPost({ request: form('a1'), env: { DB: db } });
   expect(res.status).toBe(403);
+  expect(db.calls).toHaveLength(0);
 });

@@ -4,6 +4,7 @@
 // submission content is untrusted and rendered into this HTML.
 import { requireModerator } from '../_shared/access.js';
 import { escapeHtml } from '../_shared/html.js';
+import { adminHtml } from '../_shared/admin.js';
 
 export async function onRequestGet({ request, env }) {
   const denied = await requireModerator(request, env);
@@ -13,9 +14,7 @@ export async function onRequestGet({ request, env }) {
     "SELECT id, created_at, category, level, title, body, sources, contributor, anonymous FROM submissions WHERE status = 'pending' ORDER BY created_at DESC",
   ).all();
 
-  return new Response(renderList(results || []), {
-    headers: { 'content-type': 'text/html; charset=utf-8' },
-  });
+  return adminHtml(renderList(results || []));
 }
 
 function actionForm(id, action, label) {
@@ -27,7 +26,7 @@ function renderList(rows) {
     .map(
       (r) => `<article>
   <h2>${escapeHtml(r.title)}</h2>
-  <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level)} &middot; by ${escapeHtml(r.anonymous ? 'anonymous' : r.contributor || '')}</p>
+  <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level || '')} &middot; by ${escapeHtml(r.anonymous ? 'anonymous' : r.contributor || '')}</p>
   <pre>${escapeHtml(r.body)}</pre>
   <p>sources: ${escapeHtml(r.sources || '[]')}</p>
   ${actionForm(r.id, 'approve', 'Approve')}

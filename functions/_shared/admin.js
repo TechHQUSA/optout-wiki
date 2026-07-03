@@ -1,0 +1,42 @@
+// functions/_shared/admin.js
+// Shared helpers for the admin Pages Functions. Cloudflare `_headers` does NOT
+// apply to Function responses (only to static assets), so every admin response
+// sets its own security headers here. The admin pages are plain form-only HTML
+// (no scripts, styles, images, or external assets), so default-src 'none' is safe.
+const ADMIN_HEADERS = {
+  'content-type': 'text/html; charset=utf-8',
+  'content-security-policy':
+    "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'x-robots-tag': 'noindex',
+  'referrer-policy': 'no-referrer',
+};
+
+/** HTML response with the admin security headers. */
+export function adminHtml(body, status = 200) {
+  return new Response(body, { status, headers: ADMIN_HEADERS });
+}
+
+/** Plain-text response with the admin security headers (for 400/404 etc.). */
+export function adminText(body, status) {
+  return new Response(body, { status, headers: { ...ADMIN_HEADERS, 'content-type': 'text/plain; charset=utf-8' } });
+}
+
+/**
+ * CSRF defense-in-depth for state-changing POSTs. Returns true iff the request
+ * is cross-site. Prefers the Sec-Fetch-Site hint; falls back to an Origin vs
+ * request-origin comparison. A request with neither header (rare, non-browser)
+ * is treated as same-site (the Access edge gate is the primary control).
+ */
+export function isCrossSiteWrite(request) {
+  const site = request.headers.get('sec-fetch-site');
+  if (site) return site !== 'same-origin' && site !== 'same-site' && site !== 'none';
+  const origin = request.headers.get('origin');
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin !== new URL(request.url).origin;
+  } catch {
+    return true;
+  }
+}

@@ -48,6 +48,10 @@ test('both reject and delete 400 without an id', async () => {
 
 test('reject and delete return the 403 when the gate denies', async () => {
   vi.mocked(requireModerator).mockResolvedValue(new Response('Forbidden', { status: 403 }));
-  expect((await reject({ request: form('a1', '/admin/reject'), env: { DB: makeDb() } })).status).toBe(403);
-  expect((await del({ request: form('a1', '/admin/delete'), env: { DB: makeDb() } })).status).toBe(403);
+  const rejectDb = makeDb();
+  const deleteDb = makeDb();
+  expect((await reject({ request: form('a1', '/admin/reject'), env: { DB: rejectDb } })).status).toBe(403);
+  expect((await del({ request: form('a1', '/admin/delete'), env: { DB: deleteDb } })).status).toBe(403);
+  expect(rejectDb.calls).toHaveLength(0);
+  expect(deleteDb.calls).toHaveLength(0);
 });

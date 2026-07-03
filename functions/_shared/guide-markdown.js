@@ -8,7 +8,7 @@
 
 /** Double-quoted YAML scalar with backslash/quote escaping. */
 function yamlQuote(s) {
-  return `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  return `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`;
 }
 
 /**
