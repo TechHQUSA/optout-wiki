@@ -5,5 +5,5 @@ compatibility_date = "2026-07-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "optout-wiki"
-database_id = "PLACEHOLDER_SET_AFTER_wrangler_d1_create"
+database_id = "1a57db4d-3917-4c64-a1aa-4da6b8e3b9f4"
 migrations_dir = "migrations"
