@@ -80,6 +80,7 @@ test('requireModerator returns 403 when no token is present', async () => {
 test('verifyJwt fails closed when no aud is configured', async () => {
   const token = await signToken({ aud: AUD, exp: future() });
   expect(await verifyJwt(token, [publicJwk], { aud: '' })).toBeNull();
+  // @ts-expect-error — intentionally omitting the (now required) aud to prove the runtime fails closed
   expect(await verifyJwt(token, [publicJwk], {})).toBeNull();
 });
 
