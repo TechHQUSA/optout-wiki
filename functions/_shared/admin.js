@@ -23,6 +23,11 @@ export function adminText(body, status) {
   return new Response(body, { status, headers: { ...ADMIN_HEADERS, 'content-type': 'text/plain; charset=utf-8' } });
 }
 
+/** 303 redirect carrying the admin security headers (Response.redirect can't). */
+export function adminRedirect(location) {
+  return new Response(null, { status: 303, headers: { ...ADMIN_HEADERS, location } });
+}
+
 /**
  * CSRF defense-in-depth for state-changing POSTs. Returns true iff the request
  * is cross-site. Prefers the Sec-Fetch-Site hint; falls back to an Origin vs

@@ -1,7 +1,7 @@
 // functions/admin/delete.js
 // POST /admin/delete — hard-remove a row (obvious spam), back to queue.
 import { requireModerator } from '../_shared/access.js';
-import { adminText, isCrossSiteWrite } from '../_shared/admin.js';
+import { adminText, adminRedirect, isCrossSiteWrite } from '../_shared/admin.js';
 
 export async function onRequestPost({ request, env }) {
   const denied = await requireModerator(request, env);
@@ -11,5 +11,5 @@ export async function onRequestPost({ request, env }) {
   const id = form.get('id');
   if (typeof id !== 'string' || !id) return adminText('bad-request', 400);
   await env.DB.prepare('DELETE FROM submissions WHERE id = ?').bind(id).run();
-  return Response.redirect(new URL('/admin', request.url), 303);
+  return adminRedirect(new URL('/admin', request.url).toString());
 }

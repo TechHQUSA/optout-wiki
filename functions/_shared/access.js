@@ -121,6 +121,13 @@ export async function verifyAccessJwt(request, env, now = Date.now(), fetchImpl 
  */
 export async function requireModerator(request, env, now = Date.now()) {
   const identity = await verifyAccessJwt(request, env, now);
-  if (!identity) return new Response('Forbidden', { status: 403 });
+  if (!identity) {
+    // The most-exposed admin path (unauthenticated/bots). Carry noindex + nosniff
+    // directly (no admin.js import — keep this generic gate self-contained).
+    return new Response('Forbidden', {
+      status: 403,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'x-robots-tag': 'noindex', 'x-content-type-options': 'nosniff' },
+    });
+  }
   return null;
 }

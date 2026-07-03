@@ -1,7 +1,7 @@
 // functions/admin/reject.js
 // POST /admin/reject — mark rejected (row retained for audit), back to queue.
 import { requireModerator } from '../_shared/access.js';
-import { adminText, isCrossSiteWrite } from '../_shared/admin.js';
+import { adminText, adminRedirect, isCrossSiteWrite } from '../_shared/admin.js';
 
 export async function onRequestPost({ request, env }) {
   const denied = await requireModerator(request, env);
@@ -11,5 +11,5 @@ export async function onRequestPost({ request, env }) {
   const id = form.get('id');
   if (typeof id !== 'string' || !id) return adminText('bad-request', 400);
   await env.DB.prepare("UPDATE submissions SET status = 'rejected' WHERE id = ?").bind(id).run();
-  return Response.redirect(new URL('/admin', request.url), 303);
+  return adminRedirect(new URL('/admin', request.url).toString());
 }
