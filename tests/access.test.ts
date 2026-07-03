@@ -76,3 +76,25 @@ test('requireModerator returns 403 when no token is present', async () => {
   expect(res).not.toBeNull();
   expect((res as Response).status).toBe(403);
 });
+
+test('verifyJwt fails closed when no aud is configured', async () => {
+  const token = await signToken({ aud: AUD, exp: future() });
+  expect(await verifyJwt(token, [publicJwk], { aud: '' })).toBeNull();
+  expect(await verifyJwt(token, [publicJwk], {})).toBeNull();
+});
+
+test('verifyJwt rejects a token with no exp claim', async () => {
+  const token = await signToken({ aud: AUD });
+  expect(await verifyJwt(token, [publicJwk], { aud: AUD })).toBeNull();
+});
+
+test('verifyJwt returns null (not throw) on a malformed signature segment', async () => {
+  const good = await signToken({ aud: AUD, exp: future() });
+  const [h, p] = good.split('.');
+  await expect(verifyJwt(`${h}.${p}.@@@not-base64url@@@`, [publicJwk], { aud: AUD })).resolves.toBeNull();
+});
+
+test('verifyJwt accepts an array-form aud that includes the expected value', async () => {
+  const token = await signToken({ aud: [AUD, 'other-app'], exp: future() });
+  expect(await verifyJwt(token, [publicJwk], { aud: AUD })).not.toBeNull();
+});

@@ -25,7 +25,7 @@ function decodeSegment(seg) {
  * Pure RS256 JWT verifier.
  * @param {string} token
  * @param {Array<JsonWebKey & {kid?: string}>} jwks
- * @param {{aud?: string, now?: number, iss?: string}} opts
+ * @param {{aud: string, now?: number, iss?: string}} opts
  * @returns {Promise<object|null>}
  */
 export async function verifyJwt(token, jwks, { aud, now = Date.now(), iss } = {}) {
@@ -54,18 +54,24 @@ export async function verifyJwt(token, jwks, { aud, now = Date.now(), iss } = {}
   } catch {
     return null;
   }
+  let sigBytes;
+  try {
+    sigBytes = b64urlToBytes(sigB64);
+  } catch {
+    return null;
+  }
   const ok = await crypto.subtle.verify(
     'RSASSA-PKCS1-v1_5',
     key,
-    b64urlToBytes(sigB64),
+    sigBytes,
     new TextEncoder().encode(`${headerB64}.${payloadB64}`),
   );
   if (!ok) return null;
 
   const audOk = Array.isArray(payload.aud) ? payload.aud.includes(aud) : payload.aud === aud;
-  if (aud && !audOk) return null;
+  if (!aud || !audOk) return null; // fail closed: no configured aud => reject
   if (iss && payload.iss !== iss) return null;
-  if (typeof payload.exp === 'number' && now >= payload.exp * 1000) return null;
+  if (typeof payload.exp !== 'number' || now >= payload.exp * 1000) return null;
   return payload;
 }
 
@@ -79,8 +85,13 @@ export function resetJwksCache() {
 
 async function getJwks(teamDomain, fetchImpl, now) {
   if (jwksCache.keys && now - jwksCache.at < JWKS_TTL_MS) return jwksCache.keys;
-  const res = await fetchImpl(`https://${teamDomain}/cdn-cgi/access/certs`);
-  const body = await res.json();
+  let body;
+  try {
+    const res = await fetchImpl(`https://${teamDomain}/cdn-cgi/access/certs`);
+    body = await res.json();
+  } catch {
+    return jwksCache.keys || []; // fail closed: no keys => no verification passes
+  }
   jwksCache = { keys: body.keys || [], at: now };
   return jwksCache.keys;
 }
@@ -95,7 +106,7 @@ async function getJwks(teamDomain, fetchImpl, now) {
 export async function verifyAccessJwt(request, env, now = Date.now(), fetchImpl = fetch) {
   const token =
     request.headers.get('cf-access-jwt-assertion') ||
-    (request.headers.get('cookie') || '').match(/CF_Authorization=([^;]+)/)?.[1] ||
+    (request.headers.get('cookie') || '').match(/(?:^|;\s*)CF_Authorization=([^;]+)/)?.[1] ||
     null;
   if (!token) return null;
   const jwks = await getJwks(env.CF_ACCESS_TEAM_DOMAIN, fetchImpl, now);
