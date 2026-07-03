@@ -1,3 +1,4 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 Sitemap: https://optout.wiki/sitemap-index.xml

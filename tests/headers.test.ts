@@ -19,3 +19,11 @@ test('_headers ships the exact CSP and no external hosts', () => {
   expect(h).not.toContain('fonts.googleapis.com'); // fonts self-hosted
   expect(h).toContain('interest-cohort=()');       // no-FLoC
 });
+
+test('admin surface is excluded from indexing', () => {
+  const headers = readFileSync('public/_headers', 'utf8');
+  expect(headers).toMatch(/\/admin\*/);
+  expect(headers).toMatch(/X-Robots-Tag:\s*noindex/i);
+  const robots = readFileSync('public/robots.txt', 'utf8');
+  expect(robots).toMatch(/Disallow:\s*\/admin/i);
+});
