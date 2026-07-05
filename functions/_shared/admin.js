@@ -45,3 +45,21 @@ export function isCrossSiteWrite(request) {
     return true;
   }
 }
+
+const MAX_BULK_IDS = 200;
+
+/**
+ * Extracts and validates the `id` field(s) from submitted form data for the
+ * bulk-capable approve/reject/delete routes — one or more non-empty strings,
+ * capped at MAX_BULK_IDS. A `File` entry (a stray multipart field) or an
+ * empty string anywhere in the list invalidates the whole batch, rather than
+ * silently dropping just that one entry.
+ * @param {FormData} form
+ * @returns {string[]|null} null means the caller should respond 400
+ */
+export function parseIds(form) {
+  const raw = form.getAll('id');
+  if (raw.length === 0 || raw.length > MAX_BULK_IDS) return null;
+  if (raw.some((v) => typeof v !== 'string' || v === '')) return null;
+  return /** @type {string[]} */ (raw);
+}
