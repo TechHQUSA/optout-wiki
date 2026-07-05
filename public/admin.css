@@ -1,0 +1,115 @@
+/* public/admin.css
+ * Static stylesheet for the /admin surface (Cloudflare Pages Functions can't
+ * share Astro's build-time CSS pipeline, so this is hand-written, not
+ * generated). Reuses the public site's color tokens (values copied from
+ * src/styles/tokens.css) for visual consistency, but a system font stack
+ * instead of the self-hosted webfonts — those get build-hashed filenames
+ * this static file can't reference.
+ */
+:root {
+  --bg: oklch(0.975 0.005 95);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.955 0.006 95);
+  --ink: oklch(0.21 0.012 265);
+  --muted: oklch(0.50 0.012 265);
+  --border: oklch(0.90 0.006 95);
+  --accent: oklch(0.54 0.13 150);
+  --accent-ink: oklch(0.99 0 0);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  padding: 24px;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+.admin-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.admin-nav a[aria-current='page'] {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.admin-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.admin-filters input,
+.admin-filters select,
+.admin-filters button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+}
+
+article {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+article pre {
+  white-space: pre-wrap;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.admin-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.admin-bulk-actions button {
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.admin-bulk-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-pagination {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 20px;
+}
+.admin-pagination a {
+  color: var(--accent);
+}
+
+textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}

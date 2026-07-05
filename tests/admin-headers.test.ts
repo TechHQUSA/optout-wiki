@@ -73,3 +73,12 @@ test('POST with sec-fetch-site: same-site is treated as trusted (allowed)', asyn
   const res = await reject({ request: req, env: { DB: writeDb } });
   expect(res.status).toBe(303);
 });
+
+test('GET /admin response CSP allows same-origin script and style, nothing else new', async () => {
+  const res = await onRequestGet({ request: new Request('https://x/admin'), env: { DB: listDb } });
+  const csp = res.headers.get('content-security-policy') ?? '';
+  expect(csp).toContain("script-src 'self'");
+  expect(csp).toContain("style-src 'self'");
+  expect(csp).not.toContain('unsafe-inline');
+  expect(csp).not.toContain('unsafe-eval');
+});

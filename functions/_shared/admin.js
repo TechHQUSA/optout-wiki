@@ -1,12 +1,14 @@
 // functions/_shared/admin.js
 // Shared helpers for the admin Pages Functions. Cloudflare `_headers` does NOT
 // apply to Function responses (only to static assets), so every admin response
-// sets its own security headers here. The admin pages are plain form-only HTML
-// (no scripts, styles, images, or external assets), so default-src 'none' is safe.
+// sets its own security headers here. `script-src`/`style-src` allow only
+// same-origin (`public/admin.js`/`public/admin.css`) — no inline script/style,
+// no third-party host. This CSP is scoped to /admin*; the public site's CSP
+// (public/_headers) is untouched.
 const ADMIN_HEADERS = {
   'content-type': 'text/html; charset=utf-8',
   'content-security-policy':
-    "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
   'x-robots-tag': 'noindex',
