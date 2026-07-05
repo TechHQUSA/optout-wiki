@@ -5,7 +5,6 @@ dist
 *.log
 .dev.vars
 .superpowers
-***REMOVED***
 design_handoff_optout_wiki
 .memsearch
 .DS_Store
