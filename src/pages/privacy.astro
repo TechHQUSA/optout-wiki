@@ -1,0 +1,174 @@
+---
+// src/pages/privacy.astro
+// Static content page. Describes actual data handling as implemented in
+// functions/api/contribute.js, functions/_shared/security.js, and the
+// migrations — not a generic template. Keep this in sync with those files
+// if the data flow changes.
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Privacy policy | OptOut.wiki"
+  description="What OptOut.wiki collects, what it doesn't, and why — no accounts, no analytics, no ads, no cookies."
+>
+  <Header current="privacy" />
+  <main class="privacy">
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Last updated 2026-07-04</p>
+    <h1>Privacy policy</h1>
+    <p class="dek">
+      OptOut.wiki has no accounts, no analytics, no ads, and no cookies. This page describes
+      the small amount of data the contribution form does handle, and exactly how it's used.
+    </p>
+
+    <h2>Reading the site</h2>
+    <p>
+      Guides, blog posts, and the software directory are static pages. Loading them doesn't set
+      a cookie, load a tracker, or send your activity anywhere we can see. The dark/light theme
+      toggle saves your preference in your browser's local storage only — it never reaches our
+      servers.
+    </p>
+
+    <h2>Submitting a guide</h2>
+    <p>
+      The <a href="/contribute">contribute form</a> collects the fields you fill in: title,
+      category, level, body text, source links, and an optional contributor name (skipped
+      entirely if you submit anonymously). That's stored in our database as a pending
+      submission for a moderator to review. We don't ask for an email or any account to submit.
+    </p>
+
+    <h2>Anti-abuse checks, and what they don't do</h2>
+    <p>
+      Two checks run before a submission is accepted, and neither stores anything that
+      identifies you:
+    </p>
+    <ul>
+      <li>
+        <strong>Rate limit.</strong> To stop spam, we cap submissions per hour. That check
+        needs <em>some</em> way to recognize repeat requests, so it takes your IP address and
+        turns it into a one-way <strong>salted hash</strong> (SHA-256, salted with a private
+        key only our server holds). Only that hash is stored — never the IP itself — in a
+        separate table used solely for rate limiting, and it's automatically deleted well
+        within a day. The hash is never attached to your submission's content, so nothing links
+        a guide back to where it came from.
+      </li>
+      <li>
+        <strong>Proof-of-work challenge.</strong> Instead of a third-party CAPTCHA that
+        fingerprints your browser or phones home to another company, we use
+        <a href="https://altcha.org" rel="noopener" target="_blank">ALTCHA</a>, a
+        self-hosted proof-of-work check. It asks your browser to do a small math puzzle before
+        submitting — no tracking, no external network calls, no data collected about you.
+      </li>
+    </ul>
+
+    <h2>Moderation and publishing</h2>
+    <p>
+      Every submission sits as <em>pending</em> until a moderator reviews it through an
+      access-controlled admin page. Approved guides become public, static pages on the site.
+      Rejected submissions are kept for a record of that decision; obvious spam is deleted
+      outright. Because submissions carry no identifying information, we have no way to find
+      "your" submission after the fact if you didn't keep a copy of what you sent — including
+      to delete it early. If that's a problem for a specific submission, use the source you
+      cited in it to reach us, or see Contact below.
+    </p>
+
+    <h2>Published content license</h2>
+    <p>
+      Guide and blog content is published under
+      <strong>CC BY-SA 4.0</strong> — free to share and adapt with attribution. The site's code
+      is separately open source.
+    </p>
+
+    <h2>Hosting</h2>
+    <p>
+      OptOut.wiki runs on Cloudflare Pages, Workers, and D1. Cloudflare, as our hosting
+      provider, handles standard network-level request routing to operate its service; that
+      layer is governed by
+      <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener" target="_blank"
+        >Cloudflare's own privacy policy</a
+      >, not ours. We do not use Cloudflare's analytics products on this site.
+    </p>
+
+    <h2>Children's privacy</h2>
+    <p>
+      OptOut.wiki isn't directed at children under 13, and we don't knowingly collect
+      information from them — in practice, we don't collect identifying information from
+      anyone.
+    </p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      This page is part of the site's public git history, like everything else here. If it
+      changes, the date at the top changes with it.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      [ADD CONTACT METHOD]
+    </p>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .privacy {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 20px 96px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 6px 14px;
+    margin: 0 0 24px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(32px, 5vw, 44px);
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  .dek {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0 0 40px;
+  }
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    margin: 40px 0 12px;
+  }
+  p,
+  li {
+    font-size: 15.5px;
+    line-height: 1.7;
+    color: color-mix(in srgb, var(--ink) 85%, transparent);
+  }
+  ul {
+    padding-left: 22px;
+    margin: 12px 0;
+  }
+  li + li {
+    margin-top: 14px;
+  }
+  a {
+    color: var(--accent);
+  }
+</style>

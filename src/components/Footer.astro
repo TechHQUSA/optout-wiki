@@ -7,9 +7,9 @@
 //   - sc-for over columns / col.links -> static .map() over `columns` below
 //   - style-hover="..."               -> scoped :hover rule in <style> below
 // Link hrefs are reconciled to clean URLs (/guides, /software, /blog,
-// /contribute, /#about, /#contributors), not the prototype's *.dc.html
-// hrefs. Targets with no route yet in the plan (privacy policy, source code,
-// Mastodon) are left as "#" placeholders, matching the prototype.
+// /contribute, /#about, /#contributors, /privacy), not the prototype's
+// *.dc.html hrefs. Targets with no real value yet (source code, Mastodon)
+// are left as "#" placeholders, matching the prototype.
 const columns = [
   {
     title: 'The Wiki',
@@ -33,7 +33,7 @@ const columns = [
     title: 'Project',
     links: [
       { label: 'About the mission', href: '/#about' },
-      { label: 'Our privacy policy', href: '#' },
+      { label: 'Our privacy policy', href: '/privacy' },
       { label: 'Source code', href: '#' },
       { label: 'Mastodon', href: '#' },
     ],
