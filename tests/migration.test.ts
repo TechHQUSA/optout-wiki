@@ -24,3 +24,9 @@ test('spent-altcha migration defines the single-use nonce table', () => {
   expect(sql).toMatch(/signature\s+TEXT\s+PRIMARY KEY/); // enforces single-use via uniqueness
   expect(sql).toMatch(/spent_at\s+INTEGER NOT NULL/);
 });
+
+test('moderation-audit migration adds moderated_by/moderated_at columns to submissions', () => {
+  const sql = readFileSync('migrations/0003_moderation_audit.sql', 'utf8');
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN moderated_by TEXT/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN moderated_at INTEGER/);
+});
