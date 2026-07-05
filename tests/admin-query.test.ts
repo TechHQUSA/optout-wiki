@@ -41,7 +41,7 @@ test('parseAdminQuery falls back to sort=newest for anything other than "oldest"
 
 test('buildAdminListQuery with no filters just applies the status clause', () => {
   const { whereSql, orderSql, params } = buildAdminListQuery(
-    { q: '', category: '', level: '', sort: 'newest', page: 1 },
+    { q: '', category: '', level: '', sort: 'newest' },
     "status = 'pending'",
   );
   expect(whereSql).toBe("status = 'pending'");
@@ -51,7 +51,7 @@ test('buildAdminListQuery with no filters just applies the status clause', () =>
 
 test('buildAdminListQuery adds a LIKE condition (escaped) for q, and equality for category/level', () => {
   const { whereSql, params } = buildAdminListQuery(
-    { q: '50%', category: 'Cars', level: 'LOW', sort: 'newest', page: 1 },
+    { q: '50%', category: 'Cars', level: 'LOW', sort: 'newest' },
     "status = 'pending'",
   );
   expect(whereSql).toBe(
@@ -61,7 +61,7 @@ test('buildAdminListQuery adds a LIKE condition (escaped) for q, and equality fo
 });
 
 test('buildAdminListQuery orders oldest-first when sort is "oldest"', () => {
-  const { orderSql } = buildAdminListQuery({ q: '', category: '', level: '', sort: 'oldest', page: 1 }, "status = 'pending'");
+  const { orderSql } = buildAdminListQuery({ q: '', category: '', level: '', sort: 'oldest' }, "status = 'pending'");
   expect(orderSql).toBe('ORDER BY created_at ASC');
 });
 
