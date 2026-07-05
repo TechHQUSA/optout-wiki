@@ -127,43 +127,53 @@ export async function handleContribute(request, env, now) {
     return json({ ok: false, error: 'bad-source' }, 400);
   }
 
-  // 3. Per-IP rate limit. Only the salted hash of the IP is ever
-  // computed/stored — the raw IP is used solely as input to hashIp.
-  const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
-  const ipHash = await hashIp(ip, env.IP_SALT);
-  if (!(await checkRateLimit(env.DB, ipHash, now, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX))) {
-    return json({ ok: false, error: 'rate' }, 429);
-  }
+  // 3-5. Rate limit, ALTCHA verification, and the submissions INSERT all
+  // touch D1. Wrapped in one try/catch so a transient D1 failure returns the
+  // same structured {ok:false,...} JSON shape as every other rejection in
+  // this file, instead of an uncaught throw (Cloudflare's runtime would
+  // still turn that into a generic platform 500, but with no consistent
+  // error body).
+  try {
+    // 3. Per-IP rate limit. Only the salted hash of the IP is ever
+    // computed/stored — the raw IP is used solely as input to hashIp.
+    const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
+    const ipHash = await hashIp(ip, env.IP_SALT);
+    if (!(await checkRateLimit(env.DB, ipHash, now, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX))) {
+      return json({ ok: false, error: 'rate' }, 429);
+    }
 
-  // 4. ALTCHA proof-of-work solution must verify, not be expired, and not
-  // have been used before (verifyAltcha claims the signature as spent).
-  // Deliberately last of the gates — see the file-header note on why.
-  if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
+    // 4. ALTCHA proof-of-work solution must verify, not be expired, and not
+    // have been used before (verifyAltcha claims the signature as spent).
+    // Deliberately last of the gates — see the file-header note on why.
+    if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
 
-  // 5. Insert as a pending submission for moderation. The submission row
-  // deliberately stores NO ip_hash — the salted IP hash is used only above for
-  // rate-limiting (rate_limits table) and is never persisted next to the
-  // content, so "anonymous" submissions can't be clustered by origin. See the
-  // schema note in migrations/0001_submissions.sql.
-  const id = crypto.randomUUID();
-  await env.DB.prepare(
-    'INSERT INTO submissions (id, created_at, category, level, title, body, sources, contributor, anonymous, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
-  )
-    .bind(
-      id,
-      now,
-      category,
-      data.level,
-      title,
-      body,
-      JSON.stringify(sources),
-      data.anonymous ? null : contributor || null,
-      data.anonymous ? 1 : 0,
-      'pending',
+    // 5. Insert as a pending submission for moderation. The submission row
+    // deliberately stores NO ip_hash — the salted IP hash is used only above
+    // for rate-limiting (rate_limits table) and is never persisted next to
+    // the content, so "anonymous" submissions can't be clustered by origin.
+    // See the schema note in migrations/0001_submissions.sql.
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      'INSERT INTO submissions (id, created_at, category, level, title, body, sources, contributor, anonymous, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
     )
-    .run();
+      .bind(
+        id,
+        now,
+        category,
+        data.level,
+        title,
+        body,
+        JSON.stringify(sources),
+        data.anonymous ? null : contributor || null,
+        data.anonymous ? 1 : 0,
+        'pending',
+      )
+      .run();
 
-  return json({ ok: true, id }, 200);
+    return json({ ok: true, id }, 200);
+  } catch {
+    return json({ ok: false, error: 'unavailable' }, 503);
+  }
 }
 
 export async function onRequestPost({ request, env }) {

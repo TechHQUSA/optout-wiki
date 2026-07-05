@@ -31,7 +31,8 @@ export function slugify(title) {
  * @returns {{filename: string, markdown: string}}
  */
 export function generateGuideMarkdown(submission, today) {
-  const { title, category, level, body, sources = [] } = submission;
+  const { title, category, level, body } = submission;
+  const sources = Array.isArray(submission.sources) ? submission.sources : [];
   const lines = [
     '---',
     `title: ${yamlQuote(title)}`,

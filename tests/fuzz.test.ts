@@ -254,29 +254,18 @@ test.each(contributeCorpus)('fuzz handleContribute: $label', async ({ label, pay
 });
 
 // =============================================================================
-// Task B — contribute.js error-handling audit (investigate + report; the
-// production code is intentionally NOT modified by this test).
+// Task B — contribute.js error-handling audit.
 //
-// Reading functions/api/contribute.js top to bottom: the ONLY try/catch
-// blocks are around `request.json()` (bad-json -> 400) and around
-// `new URL(value)` inside `isHttpUrl` (bad-source -> 400). There is no
-// try/catch anywhere around `checkRateLimit(env.DB, ...)`,
-// `verifyAltcha(data.altcha, env, env.DB, now)`, or the final
-// `env.DB.prepare(...).run()` INSERT. This test proves that empirically: a
-// D1 binding whose `run()` throws on the submissions INSERT causes
-// `handleContribute` itself to reject (the throw propagates out of the
-// function), rather than being caught and turned into a Response.
-//
-// Framing this as a finding, not a fix target: Cloudflare Pages Functions'
-// runtime wraps the whole `onRequestPost` invocation and turns any uncaught
-// exception into a generic runtime 500 — so in production this is not an
-// unhandled-crash outage, just a genuinely uncaught path inside this
-// function's OWN code. Whether that's acceptable (rely on the platform's
-// catch-all) or should get its own try/catch (for a domain-specific error
-// response, logging, etc.) is a call for the project owner, not something
-// this test/audit decides.
+// The fuzz audit found that a throwing D1 binding (rate-limit check, ALTCHA
+// verify, or the final submissions INSERT) propagated uncaught out of
+// handleContribute — Cloudflare's runtime would still turn that into a
+// generic platform 500, but the function's own error surface was
+// inconsistent with every other failure mode in this file, which always
+// returns a structured `{ok:false, error:'...'}` JSON body. Hardened: a
+// try/catch now wraps the D1-touching steps and returns a 503 in the same
+// shape as every other rejection.
 // =============================================================================
-test('Task B finding: a throwing D1 .run() on the submissions INSERT propagates uncaught out of handleContribute', async () => {
+test('a throwing D1 call during rate-limit/ALTCHA/insert returns a clean 503, not an uncaught throw', async () => {
   const validPayload = {
     category: 'Cars', level: 'MED', title: 'T', body: 'B',
     sources: [], anonymous: true, altcha: 'good', website: '',
@@ -298,11 +287,10 @@ test('Task B finding: a throwing D1 .run() on the submissions INSERT propagates 
       };
     },
   };
-  // The test itself must catch the throw (via .rejects) to observe it —
-  // that in itself proves handleContribute does NOT catch it internally.
-  await expect(
-    handleContribute(fuzzReq(validPayload), { ...fuzzEnv, DB: throwingDb }, 1000),
-  ).rejects.toThrow('D1 unavailable');
+  const res = await handleContribute(fuzzReq(validPayload), { ...fuzzEnv, DB: throwingDb }, 1000);
+  expect(res.status).toBe(503);
+  const body = await res.json();
+  expect(body).toEqual({ ok: false, error: 'unavailable' });
 });
 
 // =============================================================================
@@ -435,41 +423,29 @@ test.each(publishLibCorpus)('fuzz hasUnfilledPlaceholders/parseApprovedRows: $la
 //
 // generateGuideMarkdown destructures `const { sources = [] } = submission`.
 // A default parameter only kicks in when the property is strictly
-// `undefined` — so a submission whose `sources` is explicitly `null`, or an
+// `undefined`, so a submission whose `sources` was explicitly `null`, or an
 // array-like object with a numeric `.length` that isn't actually iterable
-// (e.g. `{ length: 2, 0: 'a', 1: 'b' }` — a plausible shape for a
-// hand-crafted/malformed JSON row), throws instead of degrading gracefully:
-//
-//   sources: null                    -> TypeError: Cannot read properties
-//                                        of null (reading 'length')
-//   sources: { length: 2, 0: 'a' }    -> TypeError: sources is not iterable
-//
-// Neither current call site can produce these shapes today —
-// functions/admin/approve.js's `parseSources` and
-// scripts/publish-lib.mjs's `normalizeSources` both always coerce `sources`
-// to a real array (or `[]`) before calling generateGuideMarkdown — so this
-// is not reachable in production right now. It IS a latent robustness gap
-// in the exported function itself (documented as a pure, testable-in-
-// isolation transform), which is why it surfaced from fuzzing the function
-// directly rather than through either wrapper. Left unfixed; flagging for a
-// fix decision from the project owner.
+// (e.g. `{ length: 2, 0: 'a', 1: 'b' }`), used to throw instead of degrading
+// gracefully. Neither current call site (functions/admin/approve.js's
+// `parseSources`, scripts/publish-lib.mjs's `normalizeSources`) can produce
+// these shapes — both already coerce to a real array first — but it was a
+// latent gap in the exported function itself. Hardened with an
+// `Array.isArray` guard so any non-array `sources` degrades to `[]`.
 // =============================================================================
-test('CONFIRMED FINDING: generateGuideMarkdown throws when sources is null', () => {
-  expect(() =>
-    generateGuideMarkdown(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { title: 't', category: 'c', level: 'LOW', body: 'b', sources: null as any },
-      '2026-07-04',
-    ),
-  ).toThrow(/Cannot read propert/);
+test('generateGuideMarkdown treats a null sources as empty rather than throwing', () => {
+  const { markdown } = generateGuideMarkdown(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { title: 't', category: 'c', level: 'LOW', body: 'b', sources: null as any },
+    '2026-07-04',
+  );
+  expect(markdown).toContain('sources: []');
 });
 
-test('CONFIRMED FINDING: generateGuideMarkdown throws when sources is a non-iterable array-like object', () => {
-  expect(() =>
-    generateGuideMarkdown(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { title: 't', category: 'c', level: 'LOW', body: 'b', sources: { length: 2, 0: 'a', 1: 'b' } as any },
-      '2026-07-04',
-    ),
-  ).toThrow(/not iterable/);
+test('generateGuideMarkdown treats a non-iterable array-like sources as empty rather than throwing', () => {
+  const { markdown } = generateGuideMarkdown(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { title: 't', category: 'c', level: 'LOW', body: 'b', sources: { length: 2, 0: 'a', 1: 'b' } as any },
+    '2026-07-04',
+  );
+  expect(markdown).toContain('sources: []');
 });

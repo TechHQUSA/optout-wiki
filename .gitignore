@@ -6,6 +6,7 @@ dist
 .dev.vars
 .superpowers
 design_handoff_optout_wiki
+.claude
 .memsearch
 .DS_Store
 test-results
