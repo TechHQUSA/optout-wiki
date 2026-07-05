@@ -2,6 +2,7 @@
 import { expect, test, vi, beforeEach } from 'vitest';
 import { handleContribute } from '../functions/api/contribute.js';
 import { verifyAltcha } from '../functions/_shared/altcha.js';
+import { hashIp } from '../functions/_shared/security.js';
 
 // A trackable mock (not a plain async fn) so tests can assert verifyAltcha
 // was never called for requests rejected on cheaper grounds (honeypot,
@@ -286,3 +287,214 @@ test('rate limit exceeded -> 429, no insert, ALTCHA never spent', async () => {
   // nothing — the rate-limit check must run BEFORE verifyAltcha.
   expect(verifyAltcha).not.toHaveBeenCalled();
 });
+
+// --- IP-spoof regression -----------------------------------------------
+//
+// contribute.js reads ONLY `cf-connecting-ip` (Cloudflare's edge-set,
+// non-spoofable header) with no fallback to any other header — see the
+// comment at its `const ip = request.headers.get('cf-connecting-ip') ...`
+// line. This is a regression guard for that specific fact: it builds a db
+// mock whose rate-limit row is only "at cap" for the ip_hash derived from
+// the TRUSTED header. If a future change added a fallback to
+// X-Forwarded-For / X-Real-IP (a common pattern OUTSIDE Cloudflare's edge,
+// but wrong here since those headers are entirely attacker-controlled),
+// the code would hash one of the forged values instead, miss the seeded
+// "at cap" row, and this test would flip from 429 to 200 — failing loudly.
+test('rate limiting keys off cf-connecting-ip only; forged X-Forwarded-For/X-Real-IP cannot redirect or evade it', async () => {
+  const trustedIp = '1.1.1.1';
+  const forgedXff = '9.9.9.9';
+  const forgedXRealIp = '8.8.8.8';
+  const RATE_LIMIT_MAX = 5; // mirrors the private constant in functions/api/contribute.js
+  const expectedHash = await hashIp(trustedIp, env.IP_SALT);
+
+  const submissions: unknown[] = [];
+  const selectedHashes: string[] = [];
+  const db = {
+    prepare(sql: string) {
+      return {
+        bind(...a: unknown[]) {
+          return {
+            async first() {
+              if (sql.startsWith('SELECT window_start, count FROM rate_limits')) {
+                selectedHashes.push(a[0] as string);
+                // Only the TRUSTED ip's hash is already at the cap. Any
+                // other ip_hash (e.g. one derived from a spoofed header)
+                // looks like a fresh, never-seen window.
+                return a[0] === expectedHash ? { window_start: 1000, count: RATE_LIMIT_MAX } : null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.startsWith('INSERT INTO submissions')) submissions.push(a);
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const request = new Request('https://x/api/contribute', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'cf-connecting-ip': trustedIp,
+      'x-forwarded-for': forgedXff,
+      'x-real-ip': forgedXRealIp,
+    },
+    body: JSON.stringify(valid),
+  });
+
+  const res = await handleContribute(request, { ...env, DB: db }, 1000);
+  expect(res.status).toBe(429);
+  expect(submissions.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+  // Confirms the rate limiter actually queried the trusted-ip's hash (not
+  // e.g. skipping the check entirely for some other reason).
+  expect(selectedHashes).toContain(expectedHash);
+});
+
+// --- Rate-limit boundary DoS -------------------------------------------
+//
+// Drives the real fixed-window counter (not a canned "already at cap" row)
+// through exactly RATE_LIMIT_MAX requests from the same ip_hash within one
+// window, confirming all of them succeed, then confirms request #6 is
+// blocked AND that its ALTCHA payload is never spent — mirroring the
+// existing "rate limit exceeded" test's assertion pattern, but exercising
+// the counter's actual increment logic across a full window instead of a
+// single pre-seeded snapshot.
+function makeStatefulRateLimitDb() {
+  const rateLimits = new Map<string, { window_start: number; count: number }>();
+  const submissions: unknown[] = [];
+  return {
+    submissions,
+    rateLimits,
+    prepare(sql: string) {
+      return {
+        bind(...a: unknown[]) {
+          return {
+            async first() {
+              if (sql.startsWith('SELECT window_start, count FROM rate_limits')) {
+                return rateLimits.get(a[0] as string) ?? null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.startsWith('INSERT INTO submissions')) submissions.push(a);
+              else if (sql.startsWith('INSERT OR REPLACE INTO rate_limits')) {
+                rateLimits.set(a[0] as string, { window_start: a[1] as number, count: 1 });
+              } else if (sql.startsWith('UPDATE rate_limits')) {
+                const r = rateLimits.get(a[0] as string);
+                if (r) r.count += 1;
+              }
+              // DELETE (sweepStaleRateLimits opportunistic sweep): no rows
+              // are stale here, so a no-op is correct.
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+test('exactly RATE_LIMIT_MAX requests from the same ip_hash all succeed; the next is blocked and never spends ALTCHA', async () => {
+  const RATE_LIMIT_MAX = 5; // mirrors the private constant in functions/api/contribute.js
+  const db = makeStatefulRateLimitDb();
+  const now = 1000;
+
+  for (let i = 0; i < RATE_LIMIT_MAX; i++) {
+    const res = await handleContribute(req(valid), { ...env, DB: db }, now);
+    expect(res.status).toBe(200);
+  }
+  expect(db.submissions.length).toBe(RATE_LIMIT_MAX);
+  expect(verifyAltcha).toHaveBeenCalledTimes(RATE_LIMIT_MAX);
+
+  vi.mocked(verifyAltcha).mockClear();
+  const blocked = await handleContribute(req(valid), { ...env, DB: db }, now);
+  expect(blocked.status).toBe(429);
+  expect(db.submissions.length).toBe(RATE_LIMIT_MAX); // no new row from the rejected request
+  // The regression this closes: verifying a solution also spends it
+  // (single-use), so the 6th, rejected-for-rate-limit request must never
+  // have burned its ALTCHA signature.
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+// --- Multi-byte / emoji length-cap edge cases --------------------------
+//
+// MAX_TITLE (200) caps `title.length`, which counts UTF-16 code units, not
+// bytes or grapheme clusters. These tests confirm the cap's documented
+// behavior — it bounds *code units*, not storage size — and quantify by
+// how much stored byte size can exceed the "200" the cap name suggests, so
+// any future silent change to that ratio would need to touch a test.
+test('title at MAX_TITLE made of astral-plane emoji: cap holds at the code-unit boundary (documented, not a bug)', async () => {
+  const db = makeDb();
+  // U+1F600 is a surrogate pair: 2 UTF-16 code units but 4 UTF-8 bytes per
+  // code point. 100 of them == exactly 200 code units == MAX_TITLE.
+  const emojiTitle = '\u{1F600}'.repeat(100);
+  expect(emojiTitle.length).toBe(200);
+
+  const res = await handleContribute(req({ ...valid, title: emojiTitle }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(200);
+  expect(db.rows.length).toBe(1);
+
+  const storedTitle = (db.rows[0] as unknown[])[4] as string; // bind order: id, created_at, category, level, title, ...
+  expect(storedTitle).toBe(emojiTitle);
+  const byteLength = new TextEncoder().encode(storedTitle).length;
+  // 100 code points * 4 bytes = 400 -- 2x the "200" the cap's name implies,
+  // by design (see MAX_TITLE's file-header comment): it's a code-unit cap,
+  // not a byte cap.
+  expect(byteLength).toBe(400);
+});
+
+test('one code unit over MAX_TITLE in emoji is still rejected (boundary holds past the surrogate-pair case)', async () => {
+  const db = makeDb();
+  const overTitle = '\u{1F600}'.repeat(100) + 'x'; // 201 UTF-16 code units
+  expect(overTitle.length).toBe(201);
+  const res = await handleContribute(req({ ...valid, title: overTitle }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test('BMP characters inflate stored bytes further than emoji at the same .length cap (finding: worse ratio, not a regression)', async () => {
+  const db = makeDb();
+  // U+4E00 is a single UTF-16 code unit (no surrogate pair needed) but
+  // encodes as 3 bytes in UTF-8 -- so unlike the emoji case, ballooning
+  // storage doesn't even require surrogate pairs. 200 of these hit
+  // MAX_TITLE's .length cap exactly (no surrogate-pair "discount" the way
+  // emoji get) while storing 600 bytes: a 3x inflation over the naive
+  // "200 chars ~ 200 bytes" reading of the constant's name -- worse than
+  // the emoji case above (2x). Still tiny in absolute terms (600 bytes),
+  // nowhere near the "multi-MB" row the length caps guard against, so this
+  // is noted as a documentation/expectation gap, not a security bug.
+  const title = '一'.repeat(200);
+  expect(title.length).toBe(200);
+
+  const res = await handleContribute(req({ ...valid, title }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(200);
+  const storedTitle = (db.rows[0] as unknown[])[4] as string;
+  expect(new TextEncoder().encode(storedTitle).length).toBe(600);
+});
+
+// --- Concurrent requests / fixed-window race ---------------------------
+//
+// Deliberately NOT added: a "fire several handleContribute calls via
+// Promise.all against the same ip_hash" test was prototyped to probe
+// whether the fixed-window counter's read-then-write shape
+// (SELECT count, decide, then UPDATE count = count + 1 as two separate
+// round trips in functions/_shared/security.js#checkRateLimit) is safe
+// under concurrency. Empirically, against this suite's D1 mock (a plain
+// object/Map whose `first()`/`run()` resolve with no real I/O delay),
+// Promise.all-ing N > RATE_LIMIT_MAX concurrent handleContribute calls
+// against the same ip_hash consistently allowed exactly RATE_LIMIT_MAX and
+// blocked the rest — indistinguishable from sequential calls. That's a
+// property of the JS engine's microtask scheduling for equal-depth
+// await-chains (each call's continuations happen to interleave in a way
+// that serializes the read/write pairs), not evidence the production
+// checkRateLimit is race-free — over a real network to D1 the SELECT and
+// UPDATE are two independent round trips and nothing prevents two
+// concurrent requests both reading count=4 before either's UPDATE lands.
+// Asserting today's incidental mock-scheduling behavior would be a test of
+// the mock, not of the code, so per the instructions to skip rather than
+// write a test that doesn't exercise anything real, no test is added
+// here. A genuine regression test for this would need a mock that can
+// model interleaved round trips (e.g. deferred/delayed `first()`/`run()`
+// promises), which is out of scope for this pass.
