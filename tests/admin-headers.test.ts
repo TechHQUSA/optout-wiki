@@ -14,7 +14,7 @@ beforeEach(() => {
   vi.mocked(getModeratorEmail).mockReset().mockResolvedValue('mod@example.com');
 });
 
-const listDb = { prepare: () => ({ all: async () => ({ results: [] }) }) };
+const listDb = { prepare: () => ({ bind: () => ({ all: async () => ({ results: [] }), first: async () => ({ n: 0 }) }) }) };
 const writeDb = { prepare: () => ({ bind: () => ({ run: async () => {} }) }) };
 
 test('GET /admin response carries CSP + noindex security headers', async () => {
