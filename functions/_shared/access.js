@@ -116,6 +116,24 @@ export async function verifyAccessJwt(request, env, now = Date.now(), fetchImpl 
 }
 
 /**
+ * The moderator's email from a verified Access identity, or null if there's
+ * no valid token or it carries no `email` claim. Called AFTER `requireModerator`
+ * has already gated the request — this re-verifies (cheaply, the JWKS fetch
+ * is cached) rather than threading the identity through the gate's return
+ * value, so the existing `requireModerator` contract used by every admin
+ * route stays unchanged.
+ * @param {Request} request
+ * @param {{CF_ACCESS_TEAM_DOMAIN: string, CF_ACCESS_AUD: string}} env
+ * @param {number} [now]
+ * @param {typeof fetch} [fetchImpl]
+ * @returns {Promise<string|null>}
+ */
+export async function getModeratorEmail(request, env, now = Date.now(), fetchImpl = fetch) {
+  const identity = await verifyAccessJwt(request, env, now, fetchImpl);
+  return typeof identity?.email === 'string' ? identity.email : null;
+}
+
+/**
  * 403-or-proceed gate. Returns a Response to return early, or null to continue.
  * @returns {Promise<Response|null>}
  */

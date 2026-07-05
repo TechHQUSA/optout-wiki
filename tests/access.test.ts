@@ -1,6 +1,6 @@
 // tests/access.test.ts
 import { expect, test, beforeEach } from 'vitest';
-import { verifyJwt, verifyAccessJwt, requireModerator, resetJwksCache } from '../functions/_shared/access.js';
+import { verifyJwt, verifyAccessJwt, requireModerator, resetJwksCache, getModeratorEmail } from '../functions/_shared/access.js';
 
 const AUD = 'test-aud-tag';
 const TEAM = 'team.cloudflareaccess.com';
@@ -225,4 +225,26 @@ test('a bad JWKS refresh (after cache TTL expiry) does not poison/clear the prev
     const payload = await verifyAccessJwt(req2, env, tStale, badFetch as typeof fetch);
     expect(payload).not.toBeNull();
   }
+});
+
+test('getModeratorEmail returns the email claim from a valid Access token', async () => {
+  const token = await signToken({ aud: AUD, exp: future(), iss: `https://${TEAM}`, email: 'mod@example.com' });
+  const fetchImpl = async () => new Response(JSON.stringify({ keys: [publicJwk] }));
+  const env = { CF_ACCESS_TEAM_DOMAIN: TEAM, CF_ACCESS_AUD: AUD };
+  const req = new Request('https://x/admin/approve', { headers: { 'cf-access-jwt-assertion': token } });
+  expect(await getModeratorEmail(req, env, Date.now(), fetchImpl as typeof fetch)).toBe('mod@example.com');
+});
+
+test('getModeratorEmail returns null when there is no valid token', async () => {
+  const env = { CF_ACCESS_TEAM_DOMAIN: TEAM, CF_ACCESS_AUD: AUD };
+  const req = new Request('https://x/admin/approve');
+  expect(await getModeratorEmail(req, env)).toBeNull();
+});
+
+test('getModeratorEmail returns null when the token has no email claim', async () => {
+  const token = await signToken({ aud: AUD, exp: future(), iss: `https://${TEAM}` });
+  const fetchImpl = async () => new Response(JSON.stringify({ keys: [publicJwk] }));
+  const env = { CF_ACCESS_TEAM_DOMAIN: TEAM, CF_ACCESS_AUD: AUD };
+  const req = new Request('https://x/admin/approve', { headers: { 'cf-access-jwt-assertion': token } });
+  expect(await getModeratorEmail(req, env, Date.now(), fetchImpl as typeof fetch)).toBeNull();
 });
