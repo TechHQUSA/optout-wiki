@@ -8,8 +8,9 @@
 //   - style-hover="..."               -> scoped :hover rule in <style> below
 // Link hrefs are reconciled to clean URLs (/guides, /software, /blog,
 // /contribute, /#about, /#contributors, /privacy), not the prototype's
-// *.dc.html hrefs. Targets with no real value yet (source code, Mastodon)
-// are left as "#" placeholders, matching the prototype.
+// *.dc.html hrefs. No Mastodon account exists, so that link is dropped
+// (not left as a dead "#", per project decision). "Source code" stays a "#"
+// placeholder until the repo is public — see git history for context.
 const columns = [
   {
     title: 'The Wiki',
@@ -35,7 +36,6 @@ const columns = [
       { label: 'About the mission', href: '/#about' },
       { label: 'Our privacy policy', href: '/privacy' },
       { label: 'Source code', href: '#' },
-      { label: 'Mastodon', href: '#' },
     ],
   },
 ];
