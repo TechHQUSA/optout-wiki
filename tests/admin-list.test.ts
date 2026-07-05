@@ -31,6 +31,20 @@ test('lists pending submissions and escapes untrusted fields', async () => {
   expect(html).toContain('value="a1"');
 });
 
+test.each([
+  ['null', null],
+  ['undefined', undefined],
+  ['empty string', ''],
+])('renders a %s level as an empty value, not the literal string "null"', async (_label, level) => {
+  const db = dbWith([
+    { id: 'a2', created_at: 1, category: 'Cars', level, title: 'Title', body: 'hi', sources: '[]', contributor: 'Bob', anonymous: 0 },
+  ]);
+  const res = await onRequestGet({ request: req(), env: { DB: db } });
+  const html = await res.text();
+  expect(html).not.toContain('null');
+  expect(html).toContain('<p><strong>Cars</strong> &middot;  &middot; by Bob</p>');
+});
+
 test('returns 403 when the gate denies', async () => {
   vi.mocked(requireModerator).mockResolvedValue(new Response('Forbidden', { status: 403 }));
   const res = await onRequestGet({ request: req(), env: { DB: dbWith([]) } });

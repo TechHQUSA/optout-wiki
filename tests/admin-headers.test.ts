@@ -41,3 +41,35 @@ test('same-origin POST to /admin/reject is allowed (303 redirect)', async () => 
   const res = await reject({ request: req, env: { DB: writeDb } });
   expect(res.status).toBe(303);
 });
+
+test('POST with neither sec-fetch-site nor origin header is currently allowed (documents fail-open fallback)', async () => {
+  const body = new URLSearchParams({ id: 'a1' });
+  const req = new Request('https://x/admin/reject', {
+    method: 'POST',
+    body,
+  });
+  const res = await reject({ request: req, env: { DB: writeDb } });
+  expect(res.status).toBe(303);
+});
+
+test('POST with an origin header pointing to a different host is rejected with 403', async () => {
+  const body = new URLSearchParams({ id: 'a1' });
+  const req = new Request('https://x/admin/reject', {
+    method: 'POST',
+    headers: { origin: 'https://evil.example.com' },
+    body,
+  });
+  const res = await reject({ request: req, env: { DB: writeDb } });
+  expect(res.status).toBe(403);
+});
+
+test('POST with sec-fetch-site: same-site is treated as trusted (allowed)', async () => {
+  const body = new URLSearchParams({ id: 'a1' });
+  const req = new Request('https://x/admin/reject', {
+    method: 'POST',
+    headers: { 'sec-fetch-site': 'same-site' },
+    body,
+  });
+  const res = await reject({ request: req, env: { DB: writeDb } });
+  expect(res.status).toBe(303);
+});
