@@ -3,12 +3,16 @@ import { expect, test, vi, beforeEach } from 'vitest';
 
 vi.mock('../functions/_shared/access.js', () => ({
   requireModerator: vi.fn(async () => null),
+  getModeratorEmail: vi.fn(async () => 'mod@example.com'),
 }));
-import { requireModerator } from '../functions/_shared/access.js';
+import { requireModerator, getModeratorEmail } from '../functions/_shared/access.js';
 import { onRequestGet } from '../functions/admin/index.js';
 import { onRequestPost as reject } from '../functions/admin/reject.js';
 
-beforeEach(() => vi.mocked(requireModerator).mockReset().mockResolvedValue(null));
+beforeEach(() => {
+  vi.mocked(requireModerator).mockReset().mockResolvedValue(null);
+  vi.mocked(getModeratorEmail).mockReset().mockResolvedValue('mod@example.com');
+});
 
 const listDb = { prepare: () => ({ all: async () => ({ results: [] }) }) };
 const writeDb = { prepare: () => ({ bind: () => ({ run: async () => {} }) }) };
