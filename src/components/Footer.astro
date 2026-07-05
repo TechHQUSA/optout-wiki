@@ -7,10 +7,9 @@
 //   - sc-for over columns / col.links -> static .map() over `columns` below
 //   - style-hover="..."               -> scoped :hover rule in <style> below
 // Link hrefs are reconciled to clean URLs (/guides, /software, /blog,
-// /contribute, /#about, /#contributors, /privacy), not the prototype's
-// *.dc.html hrefs. No Mastodon account exists, so that link is dropped
-// (not left as a dead "#", per project decision). "Source code" stays a "#"
-// placeholder until the repo is public — see git history for context.
+// /contribute, /#about, /#contributors, /privacy, and the public GitHub
+// repo), not the prototype's *.dc.html hrefs. No Mastodon account exists, so
+// that link is dropped (not left as a dead "#", per project decision).
 const columns = [
   {
     title: 'The Wiki',
@@ -35,7 +34,7 @@ const columns = [
     links: [
       { label: 'About the mission', href: '/#about' },
       { label: 'Our privacy policy', href: '/privacy' },
-      { label: 'Source code', href: '#' },
+      { label: 'Source code', href: 'https://github.com/TechHQUSA/optout-wiki' },
     ],
   },
 ];

@@ -17,3 +17,10 @@ test('privacy page states the submission IP is hashed, not stored raw', async ()
   expect(html.toLowerCase()).toContain('salted hash');
   expect(html.toLowerCase()).not.toContain('we store your ip');
 });
+
+test('privacy page has no unfilled placeholder and links a real contact route', async () => {
+  const c = await AstroContainer.create();
+  const html = await c.renderToString(Privacy);
+  expect(html).not.toMatch(/\[ADD [^\]]*\]/);
+  expect(html).toContain('href="https://github.com/TechHQUSA/optout-wiki/issues"');
+});
