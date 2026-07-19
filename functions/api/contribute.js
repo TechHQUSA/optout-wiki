@@ -49,6 +49,14 @@ const MAX_CONTRIBUTOR = 120;
 const MAX_SOURCES = 20; // number of source URLs
 const MAX_SOURCE_URL = 500; // chars per source URL
 
+// Software-submission caps (type='software'). Same fail-closed rationale.
+const MAX_SW_NAME = 120;
+const MAX_SW_URL = 500;
+const MAX_SW_SUMMARY = 500;
+const MAX_SW_JUSTIFICATION = 5000;
+const MAX_SW_TAGS = 10; // number of tags
+const MAX_SW_TAG = 40; // chars per tag
+
 const json = (obj, status) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
 
 // A source must parse as a URL AND use an http(s) scheme. Anything else
@@ -96,22 +104,26 @@ export async function handleContribute(request, env, now) {
   // no indication it was the honeypot specifically that tripped.
   if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
 
-  // 2. Required-field validation. Non-string fields become '' (empty)
-  // rather than throwing, so they cleanly fail the non-empty check below.
-  const title = typeof data.title === 'string' ? data.title.trim() : '';
-  const body = typeof data.body === 'string' ? data.body.trim() : '';
-  const category = typeof data.category === 'string' ? data.category.trim() : '';
-  if (!title || !body || !category || !LEVELS.has(data.level)) return json({ ok: false, error: 'invalid' }, 400);
+  // 1b. Type discriminator: absent means 'guide' (legacy payloads), only
+  // 'guide'/'software' are valid — anything else fails closed before any
+  // further field access.
+  const type =
+    data.type === undefined || data.type === 'guide' ? 'guide' : data.type === 'software' ? 'software' : null;
+  if (!type) return json({ ok: false, error: 'invalid' }, 400);
 
+  // 2. Required-field validation (per type). Non-string fields become ''
+  // (empty) rather than throwing, so they cleanly fail the non-empty check.
   // 2b. Length caps (fail-closed). Reject oversized fields with a 400 before
   // the INSERT so a solver cannot persist multi-MB rows. `sources` is bounded
   // both in count and per-URL length; non-string entries are rejected too.
+  // 2c. URL scheme (fail-closed): every stored URL (guide sources, software
+  // homepage + evidence sources) must be http(s) — they are eventually
+  // rendered as <a href>, so javascript:/data: is a stored-XSS vector.
+  // All of 2* runs before the ALTCHA gate so a rejected payload never spends
+  // the client's proof-of-work.
   const contributor = typeof data.contributor === 'string' ? data.contributor : '';
   const sources = Array.isArray(data.sources) ? data.sources : [];
   if (
-    title.length > MAX_TITLE ||
-    category.length > MAX_CATEGORY ||
-    body.length > MAX_BODY ||
     contributor.length > MAX_CONTRIBUTOR ||
     sources.length > MAX_SOURCES ||
     sources.some((s) => typeof s !== 'string' || s.length > MAX_SOURCE_URL)
@@ -119,10 +131,50 @@ export async function handleContribute(request, env, now) {
     return json({ ok: false, error: 'too-long' }, 400);
   }
 
-  // 2c. Source URL scheme (fail-closed). Every source must be an http(s) URL;
-  // reject javascript:/data:/mailto:/garbage before it can be queued and later
-  // rendered as an <a href> on a published guide. Runs before the ALTCHA gate
-  // so a rejected payload never spends the client's proof-of-work.
+  // Per-type column values for the single INSERT below. Software reuses:
+  // title=name, body=justification (moderator-only), sources=evidence URLs;
+  // level is guides-only, url/tags/summary are software-only (NULL for guides).
+  let fields;
+  if (type === 'guide') {
+    const title = typeof data.title === 'string' ? data.title.trim() : '';
+    const body = typeof data.body === 'string' ? data.body.trim() : '';
+    const category = typeof data.category === 'string' ? data.category.trim() : '';
+    if (!title || !body || !category || !LEVELS.has(data.level)) return json({ ok: false, error: 'invalid' }, 400);
+    if (title.length > MAX_TITLE || category.length > MAX_CATEGORY || body.length > MAX_BODY) {
+      return json({ ok: false, error: 'too-long' }, 400);
+    }
+    fields = { title, category, level: data.level, body, url: null, tags: null, summary: null };
+  } else {
+    const name = typeof data.name === 'string' ? data.name.trim() : '';
+    const category = typeof data.category === 'string' ? data.category.trim() : '';
+    const url = typeof data.url === 'string' ? data.url.trim() : '';
+    const summary = typeof data.summary === 'string' ? data.summary.trim() : '';
+    const justification = typeof data.justification === 'string' ? data.justification.trim() : '';
+    const tags = Array.isArray(data.tags) ? data.tags : [];
+    if (!name || !category || !url || !summary) return json({ ok: false, error: 'invalid' }, 400);
+    if (
+      name.length > MAX_SW_NAME ||
+      category.length > MAX_CATEGORY ||
+      url.length > MAX_SW_URL ||
+      summary.length > MAX_SW_SUMMARY ||
+      justification.length > MAX_SW_JUSTIFICATION ||
+      tags.length > MAX_SW_TAGS ||
+      tags.some((t) => typeof t !== 'string' || t.length > MAX_SW_TAG)
+    ) {
+      return json({ ok: false, error: 'too-long' }, 400);
+    }
+    if (!isHttpUrl(url)) return json({ ok: false, error: 'bad-source' }, 400);
+    fields = {
+      title: name,
+      category,
+      level: null,
+      body: justification,
+      url,
+      tags: JSON.stringify(tags),
+      summary,
+    };
+  }
+
   if (!sources.every(isHttpUrl)) {
     return json({ ok: false, error: 'bad-source' }, 400);
   }
@@ -154,19 +206,23 @@ export async function handleContribute(request, env, now) {
     // See the schema note in migrations/0001_submissions.sql.
     const id = crypto.randomUUID();
     await env.DB.prepare(
-      'INSERT INTO submissions (id, created_at, category, level, title, body, sources, contributor, anonymous, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      'INSERT INTO submissions (id, created_at, type, category, level, title, body, sources, contributor, anonymous, status, url, tags, summary) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     )
       .bind(
         id,
         now,
-        category,
-        data.level,
-        title,
-        body,
+        type,
+        fields.category,
+        fields.level,
+        fields.title,
+        fields.body,
         JSON.stringify(sources),
         data.anonymous ? null : contributor || null,
         data.anonymous ? 1 : 0,
         'pending',
+        fields.url,
+        fields.tags,
+        fields.summary,
       )
       .run();
 
