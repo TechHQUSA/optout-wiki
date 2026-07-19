@@ -16,16 +16,23 @@ export function renderNav(active) {
 }
 
 /**
- * @param {{q: string, category: string, level: string, sort: string}} query
+ * @param {{q: string, category: string, level: string, type?: string, sort: string}} query
  * @param {string} action e.g. "/admin" or "/admin/history"
  * @returns {string}
  */
 export function renderFilterForm(query, action) {
   const levelOption = (value, label) =>
     `<option value="${value}"${query.level === value ? ' selected' : ''}>${label}</option>`;
+  const typeOption = (value, label) =>
+    `<option value="${value}"${(query.type || '') === value ? ' selected' : ''}>${label}</option>`;
   return `<form method="GET" action="${action}" class="admin-filters">
   <input type="search" name="q" value="${escapeHtml(query.q)}" placeholder="Search title or category">
   <input type="text" name="category" value="${escapeHtml(query.category)}" placeholder="Category">
+  <select name="type">
+    ${typeOption('', 'Any type')}
+    ${typeOption('guide', 'Guide')}
+    ${typeOption('software', 'Software')}
+  </select>
   <select name="level">
     <option value=""${query.level === '' ? ' selected' : ''}>Any level</option>
     ${levelOption('LOW', 'LOW')}

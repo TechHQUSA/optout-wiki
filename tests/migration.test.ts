@@ -30,3 +30,14 @@ test('moderation-audit migration adds moderated_by/moderated_at columns to submi
   expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN moderated_by TEXT/);
   expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN moderated_at INTEGER/);
 });
+
+test('software-submissions migration adds type/url/tags/summary columns and type index', () => {
+  const sql = readFileSync('migrations/0004_software_submissions.sql', 'utf8');
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN type TEXT NOT NULL DEFAULT 'guide'/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN url TEXT/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN tags TEXT/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN summary TEXT/);
+  expect(sql).toMatch(/CREATE INDEX idx_submissions_type ON submissions\(type\)/);
+  // guides-only column must not sneak in a NOT NULL without default (ALTER would fail on existing rows)
+  expect(sql).not.toMatch(/url TEXT NOT NULL/);
+});

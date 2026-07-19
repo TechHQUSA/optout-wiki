@@ -21,12 +21,12 @@ test('escapeLike escapes %, _, and backslash so search text is treated literally
 
 test('parseAdminQuery defaults every field when the URL has no query params', () => {
   const query = parseAdminQuery(new URL('https://x/admin'));
-  expect(query).toEqual({ q: '', category: '', level: '', sort: 'newest', page: 1 });
+  expect(query).toEqual({ q: '', category: '', level: '', type: '', sort: 'newest', page: 1 });
 });
 
 test('parseAdminQuery reads q/category/level/sort/page from the URL', () => {
   const query = parseAdminQuery(new URL('https://x/admin?q=foo&category=Cars&level=LOW&sort=oldest&page=3'));
-  expect(query).toEqual({ q: 'foo', category: 'Cars', level: 'LOW', sort: 'oldest', page: 3 });
+  expect(query).toEqual({ q: 'foo', category: 'Cars', level: 'LOW', type: '', sort: 'oldest', page: 3 });
 });
 
 test('parseAdminQuery falls back to page 1 for garbage/negative/zero page values', () => {
@@ -80,4 +80,26 @@ test('totalPages is at least 1 and rounds up', () => {
   expect(totalPages(25)).toBe(1);
   expect(totalPages(26)).toBe(2);
   expect(totalPages(50)).toBe(2);
+});
+
+test('parseAdminQuery reads type, only accepting guide/software', () => {
+  expect(parseAdminQuery(new URL('https://x/admin?type=software')).type).toBe('software');
+  expect(parseAdminQuery(new URL('https://x/admin?type=guide')).type).toBe('guide');
+  expect(parseAdminQuery(new URL('https://x/admin?type=bogus')).type).toBe('');
+});
+
+test('buildAdminListQuery adds equality for type', () => {
+  const { whereSql, params } = buildAdminListQuery(
+    { q: '', category: '', level: '', type: 'software', sort: 'newest' },
+    "status = 'pending'",
+  );
+  expect(whereSql).toBe("status = 'pending' AND type = ?");
+  expect(params).toEqual(['software']);
+});
+
+test('pageLink preserves type', () => {
+  expect(pageLink({ q: '', category: '', level: '', type: 'software', sort: 'newest' }, 2)).toBe(
+    '?type=software&page=2',
+  );
+  expect(pageLink({ q: '', category: '', level: '', type: '', sort: 'newest' }, 1)).toBe('');
 });

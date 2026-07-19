@@ -436,7 +436,7 @@ test('title at MAX_TITLE made of astral-plane emoji: cap holds at the code-unit 
   expect(res.status).toBe(200);
   expect(db.rows.length).toBe(1);
 
-  const storedTitle = (db.rows[0] as unknown[])[4] as string; // bind order: id, created_at, category, level, title, ...
+  const storedTitle = (db.rows[0] as unknown[])[5] as string; // bind order: id, created_at, type, category, level, title, ...
   expect(storedTitle).toBe(emojiTitle);
   const byteLength = new TextEncoder().encode(storedTitle).length;
   // 100 code points * 4 bytes = 400 -- 2x the "200" the cap's name implies,
@@ -470,7 +470,7 @@ test('BMP characters inflate stored bytes further than emoji at the same .length
 
   const res = await handleContribute(req({ ...valid, title }), { ...env, DB: db }, 1000);
   expect(res.status).toBe(200);
-  const storedTitle = (db.rows[0] as unknown[])[4] as string;
+  const storedTitle = (db.rows[0] as unknown[])[5] as string;
   expect(new TextEncoder().encode(storedTitle).length).toBe(600);
 });
 
@@ -498,3 +498,146 @@ test('BMP characters inflate stored bytes further than emoji at the same .length
 // here. A genuine regression test for this would need a mock that can
 // model interleaved round trips (e.g. deferred/delayed `first()`/`run()`
 // promises), which is out of scope for this pass.
+
+// ---- software submissions (type='software') ----
+
+const validSw = {
+  type: 'software',
+  name: 'Mullvad VPN',
+  category: 'Network',
+  url: 'https://mullvad.net',
+  summary: 'Anonymous VPN.',
+  tags: ['vpn', 'no-logs'],
+  justification: 'Audited, no logs, cash payment.',
+  sources: ['https://mullvad.net/en/blog/audit'],
+  anonymous: true,
+  altcha: 'good',
+  website: '',
+};
+
+test('unknown type -> 400 invalid, ALTCHA never spent', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, type: 'exploit' }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ ok: false, error: 'invalid' });
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test("explicit type:'guide' behaves exactly like the legacy payload", async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...valid, type: 'guide' }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(200);
+  expect(db.rows.length).toBe(1);
+});
+
+test('software happy path inserts pending row: type=software, level NULL, columns mapped', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req(validSw), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(200);
+  expect(db.rows.length).toBe(1);
+  expect(verifyAltcha).toHaveBeenCalledTimes(1);
+  const bound = db.rows[0] as unknown[];
+  expect(bound).toContain('software'); // type
+  expect(bound).toContain('Mullvad VPN'); // title=name
+  expect(bound).toContain('https://mullvad.net'); // url
+  expect(bound).toContain('Anonymous VPN.'); // summary
+  expect(bound).toContain('Audited, no logs, cash payment.'); // body=justification
+  expect(bound).toContain(JSON.stringify(['vpn', 'no-logs'])); // tags JSON
+  expect(bound).toContain(null); // level bound as NULL
+});
+
+test.each(['name', 'category', 'url', 'summary'])(
+  'software missing required %s -> 400, ALTCHA never spent',
+  async (field) => {
+    const db = makeDb();
+    const res = await handleContribute(req({ ...validSw, [field]: '' }), { ...env, DB: db }, 1000);
+    expect(res.status).toBe(400);
+    expect(db.rows.length).toBe(0);
+    expect(verifyAltcha).not.toHaveBeenCalled();
+  },
+);
+
+test('software javascript: url -> 400 bad-source', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...validSw, url: 'javascript:alert(1)' }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ ok: false, error: 'bad-source' });
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software bad evidence source scheme -> 400 bad-source', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...validSw, sources: ['data:text/html,x'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+});
+
+test.each([
+  ['name', 'x'.repeat(121)],
+  ['url', `https://e.com/${'x'.repeat(500)}`],
+  ['summary', 'x'.repeat(501)],
+  ['justification', 'x'.repeat(5001)],
+])('software over-length %s -> 400 too-long, ALTCHA never spent', async (field, value) => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...validSw, [field]: value }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ ok: false, error: 'too-long' });
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software tags: >10 entries, over-length entry, or non-string entry -> 400', async () => {
+  const db = makeDb();
+  for (const tags of [Array.from({ length: 11 }, () => 't'), ['x'.repeat(41)], ['ok', 7]]) {
+    const res = await handleContribute(req({ ...validSw, tags }), { ...env, DB: db }, 1000);
+    expect(res.status).toBe(400);
+  }
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software honeypot filled -> 400 generic, ALTCHA never spent', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...validSw, website: 'bot' }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software rate-limited -> 429 before ALTCHA is spent', async () => {
+  const db = makeRateLimitedDb(5);
+  const res = await handleContribute(req(validSw), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(429);
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software category outside the allow-list -> 400 invalid', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...validSw, category: 'Games' }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ ok: false, error: 'invalid' });
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software tags are trimmed and empty entries dropped before storage', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...validSw, tags: ['  vpn  ', '   ', 'no-logs'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows[0]).toContain(JSON.stringify(['vpn', 'no-logs']));
+});

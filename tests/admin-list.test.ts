@@ -86,3 +86,43 @@ test('the queue page includes the nav, filter form, checkboxes, and bulk-action 
   expect(html).toContain('<link rel="stylesheet" href="/admin.css">');
   expect(html).toContain('<script type="module" src="/admin.js"></script>');
 });
+
+test('software rows render badge, url/summary/tags, justification and evidence — all escaped', async () => {
+  const db = dbWith([
+    {
+      id: 's1', created_at: 1, type: 'software', category: 'Network', level: null,
+      title: 'Mullvad', body: 'why: <b>good</b>', sources: '["https://e.com/audit"]',
+      contributor: null, anonymous: 1,
+      url: 'https://mullvad.net/"><script>x</script>', tags: '["vpn","<i>"]', summary: 'Sum <script>',
+    },
+  ]);
+  const res = await onRequestGet({ request: req(), env: { DB: db } });
+  const html = await res.text();
+  expect(html).toContain('[software]');
+  expect(html).not.toContain('<script>x</script>');
+  expect(html).toContain('&lt;script&gt;x&lt;/script&gt;');
+  expect(html).toContain('Sum &lt;script&gt;');
+  expect(html).toContain('why: &lt;b&gt;good&lt;/b&gt;');
+  expect(html).toContain('https://e.com/audit');
+  expect(html).toContain('vpn');
+});
+
+test('guide rows render a [guide] badge and no software fields', async () => {
+  const db = dbWith([
+    { id: 'a1', created_at: 1, type: 'guide', category: 'Cars', level: 'MED', title: 'T', body: 'B', sources: '[]', contributor: null, anonymous: 1, url: null, tags: null, summary: null },
+  ]);
+  const res = await onRequestGet({ request: req(), env: { DB: db } });
+  const html = await res.text();
+  expect(html).toContain('[guide]');
+  expect(html).not.toContain('[software]');
+});
+
+test('queue SELECT includes the software columns', async () => {
+  const db = dbWith([]);
+  await onRequestGet({ request: req(), env: { DB: db } });
+  const selectCall = db.calls.find((c) => c.sql.includes('SELECT id'));
+  expect(selectCall!.sql).toContain('type');
+  expect(selectCall!.sql).toContain('url');
+  expect(selectCall!.sql).toContain('tags');
+  expect(selectCall!.sql).toContain('summary');
+});

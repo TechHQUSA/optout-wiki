@@ -16,8 +16,10 @@ export async function onRequestPost({ request, env }) {
   const moderatedBy = await getModeratorEmail(request, env);
   const now = Date.now();
   for (const id of ids) {
+    // Guarded: only a still-pending row is rejected, so re-moderation can't
+    // overwrite the moderated_by/at audit trail (mirrors approve.js).
     await env.DB.prepare(
-      "UPDATE submissions SET status = 'rejected', moderated_by = ?, moderated_at = ? WHERE id = ?",
+      "UPDATE submissions SET status = 'rejected', moderated_by = ?, moderated_at = ? WHERE id = ? AND status = 'pending'",
     )
       .bind(moderatedBy, now, id)
       .run();
