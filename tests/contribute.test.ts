@@ -584,7 +584,6 @@ test('software bad evidence source scheme -> 400 bad-source', async () => {
 
 test.each([
   ['name', 'x'.repeat(121)],
-  ['category', 'x'.repeat(65)],
   ['url', `https://e.com/${'x'.repeat(500)}`],
   ['summary', 'x'.repeat(501)],
   ['justification', 'x'.repeat(5001)],
@@ -621,4 +620,24 @@ test('software rate-limited -> 429 before ALTCHA is spent', async () => {
   expect(res.status).toBe(429);
   expect(db.rows.length).toBe(0);
   expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software category outside the allow-list -> 400 invalid', async () => {
+  const db = makeDb();
+  const res = await handleContribute(req({ ...validSw, category: 'Games' }), { ...env, DB: db }, 1000);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ ok: false, error: 'invalid' });
+  expect(db.rows.length).toBe(0);
+  expect(verifyAltcha).not.toHaveBeenCalled();
+});
+
+test('software tags are trimmed and empty entries dropped before storage', async () => {
+  const db = makeDb();
+  const res = await handleContribute(
+    req({ ...validSw, tags: ['  vpn  ', '   ', 'no-logs'] }),
+    { ...env, DB: db },
+    1000,
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows[0]).toContain(JSON.stringify(['vpn', 'no-logs']));
 });

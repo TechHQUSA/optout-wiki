@@ -57,6 +57,21 @@ const MAX_SW_JUSTIFICATION = 5000;
 const MAX_SW_TAGS = 10; // number of tags
 const MAX_SW_TAG = 40; // chars per tag
 
+// Fixed category list for software submissions — mirrors the /contribute
+// form's <select>. Fail-closed: an unknown category can't reach the queue
+// (unlike guide categories, which are historically free-form).
+const SOFTWARE_CATEGORIES = new Set([
+  'Browser',
+  'Search',
+  'Email',
+  'Messaging',
+  'Network',
+  'DNS',
+  'Passwords',
+  'OS',
+  'Other',
+]);
+
 const json = (obj, status) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
 
 // A source must parse as a URL AND use an http(s) scheme. Anything else
@@ -151,7 +166,9 @@ export async function handleContribute(request, env, now) {
     const summary = typeof data.summary === 'string' ? data.summary.trim() : '';
     const justification = typeof data.justification === 'string' ? data.justification.trim() : '';
     const tags = Array.isArray(data.tags) ? data.tags : [];
-    if (!name || !category || !url || !summary) return json({ ok: false, error: 'invalid' }, 400);
+    if (!name || !category || !SOFTWARE_CATEGORIES.has(category) || !url || !summary) {
+      return json({ ok: false, error: 'invalid' }, 400);
+    }
     if (
       name.length > MAX_SW_NAME ||
       category.length > MAX_CATEGORY ||
@@ -170,7 +187,9 @@ export async function handleContribute(request, env, now) {
       level: null,
       body: justification,
       url,
-      tags: JSON.stringify(tags),
+      // caps above ran on the raw entries; store them normalized (trimmed,
+      // whitespace-only entries dropped)
+      tags: JSON.stringify(tags.map((t) => t.trim()).filter(Boolean)),
       summary,
     };
   }
