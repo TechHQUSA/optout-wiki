@@ -7,6 +7,7 @@
 import { requireModerator, getModeratorEmail } from '../_shared/access.js';
 import { escapeHtml } from '../_shared/html.js';
 import { generateGuideMarkdown } from '../_shared/guide-markdown.js';
+import { generateSoftwareEntry } from '../_shared/software-entry.js';
 import { adminHtml, adminText, isCrossSiteWrite, parseIds } from '../_shared/admin.js';
 
 function parseSources(s) {
@@ -34,19 +35,29 @@ export async function onRequestPost({ request, env }) {
 
   const blocks = [];
   for (const id of ids) {
-    await env.DB.prepare(
-      "UPDATE submissions SET status = 'approved', moderated_by = ?, moderated_at = ? WHERE id = ?",
+    // Guarded UPDATE: only a still-pending row is approved, so re-moderating
+    // an already-moderated id can never overwrite its moderated_by/at audit
+    // trail. A 0-changes result (missing OR already moderated) skips the row
+    // entirely — no scaffold. An absent meta (non-D1 mock) counts as changed.
+    const result = await env.DB.prepare(
+      "UPDATE submissions SET status = 'approved', moderated_by = ?, moderated_at = ? WHERE id = ? AND status = 'pending'",
     )
       .bind(moderatedBy, now, id)
       .run();
+    if (result?.meta?.changes === 0) continue;
     const row = await env.DB.prepare(
-      'SELECT title, category, level, body, sources FROM submissions WHERE id = ?',
+      'SELECT type, title, category, level, body, sources, url, tags, summary FROM submissions WHERE id = ?',
     )
       .bind(id)
       .first();
     if (!row) continue;
-    const { filename, markdown } = generateGuideMarkdown({ ...row, sources: parseSources(row.sources) }, today);
-    blocks.push({ filename, markdown });
+    if (row.type === 'software') {
+      const { id: entryId, json } = generateSoftwareEntry(row);
+      blocks.push({ kind: 'software', entryId, json });
+    } else {
+      const { filename, markdown } = generateGuideMarkdown({ ...row, sources: parseSources(row.sources) }, today);
+      blocks.push({ kind: 'guide', filename, markdown });
+    }
   }
 
   if (blocks.length === 0) return adminText('not-found', 404);
@@ -56,10 +67,15 @@ export async function onRequestPost({ request, env }) {
 
 function renderApprove(blocks) {
   const sections = blocks
-    .map(
-      ({ filename, markdown }) => `<section>
-  <p>Save as <code>src/content/guides/${escapeHtml(filename)}</code>, fill the <code>[ADD …]</code> placeholders, then commit:</p>
-  <textarea readonly rows="30" cols="100">${escapeHtml(markdown)}</textarea>
+    .map((b) =>
+      b.kind === 'software'
+        ? `<section>
+  <p>Add this entry (id <code>${escapeHtml(b.entryId)}</code>) to <code>src/content/software/software.json</code>, then commit:</p>
+  <textarea readonly rows="12" cols="100">${escapeHtml(b.json)}</textarea>
+</section>`
+        : `<section>
+  <p>Save as <code>src/content/guides/${escapeHtml(b.filename)}</code>, fill the <code>[ADD …]</code> placeholders, then commit:</p>
+  <textarea readonly rows="30" cols="100">${escapeHtml(b.markdown)}</textarea>
 </section>`,
     )
     .join('\n');

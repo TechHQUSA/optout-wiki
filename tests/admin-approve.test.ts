@@ -92,3 +92,60 @@ test('approve returns the 403 when the gate denies, and never touches the DB', a
   expect(res.status).toBe(403);
   expect(db.calls).toHaveLength(0);
 });
+
+test('approve UPDATE carries AND status = pending (audit columns cannot be overwritten by re-moderation)', async () => {
+  const db = makeDb({ a1: { title: 'G', category: 'Cars', level: 'LOW', body: 'b', sources: '[]' } });
+  await onRequestPost({ request: form('a1'), env: { DB: db } });
+  const updateCall = db.calls.find((c) => c.sql.startsWith('UPDATE submissions'));
+  expect(updateCall!.sql).toContain("AND status = 'pending'");
+});
+
+test('approving an already-moderated id (0 rows changed) skips it entirely -> 404 when nothing else', async () => {
+  const calls: { sql: string; args: unknown[] }[] = [];
+  const db = {
+    calls,
+    prepare(sql: string) {
+      return {
+        bind(...args: unknown[]) {
+          calls.push({ sql, args });
+          return {
+            async run() { return { meta: { changes: 0 } }; },
+            async first() { return { title: 'G', category: 'Cars', level: 'LOW', body: 'b', sources: '[]' }; },
+          };
+        },
+      };
+    },
+  };
+  const res = await onRequestPost({ request: form('a1'), env: { DB: db } });
+  expect(res.status).toBe(404);
+  // no SELECT should even run for a skipped row
+  expect(calls.some((c) => c.sql.trim().startsWith('SELECT'))).toBe(false);
+});
+
+test('approving a software submission renders a commit-ready software.json entry', async () => {
+  const db = makeDb({
+    s1: {
+      type: 'software', title: 'Mullvad VPN', category: 'Network', level: null, body: 'why',
+      sources: '["https://e.com/audit"]', url: 'https://mullvad.net', tags: '["vpn"]', summary: 'Anon VPN.',
+    },
+  });
+  const res = await onRequestPost({ request: form('s1'), env: { DB: db } });
+  expect(res.status).toBe(200);
+  const html = await res.text();
+  expect(html).toContain('src/content/software/software.json');
+  expect(html).toContain('&quot;id&quot;: &quot;mullvad-vpn&quot;');
+  expect(html).toContain('&quot;url&quot;: &quot;https://mullvad.net&quot;');
+  expect(html).not.toContain('mullvad-vpn.md'); // no markdown scaffold for software
+});
+
+test('mixed bulk approve renders a markdown block for the guide and a JSON block for the software row', async () => {
+  const db = makeDb({
+    a1: { type: 'guide', title: 'Guide One', category: 'Cars', level: 'LOW', body: 'b1', sources: '[]' },
+    s1: { type: 'software', title: 'Tool One', category: 'OS', level: null, body: 'j', sources: '[]', url: 'https://t.one', tags: '[]', summary: 'S.' },
+  });
+  const res = await onRequestPost({ request: form('a1', 's1'), env: { DB: db } });
+  const html = await res.text();
+  expect(html).toContain('guide-one.md');
+  expect(html).toContain('src/content/software/software.json');
+  expect(html).toContain('Approved (2)');
+});

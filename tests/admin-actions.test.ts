@@ -81,3 +81,10 @@ test('reject and delete return the 403 when the gate denies, and never touch the
   expect(rejectDb.calls).toHaveLength(0);
   expect(deleteDb.calls).toHaveLength(0);
 });
+
+test('reject UPDATE carries AND status = pending (audit columns cannot be overwritten by re-moderation)', async () => {
+  const db = makeDb();
+  await reject({ request: form(['r1'], '/admin/reject'), env: { DB: db } });
+  const updateCall = db.calls.find((c) => c.sql.startsWith('UPDATE submissions'));
+  expect(updateCall!.sql).toContain("AND status = 'pending'");
+});
