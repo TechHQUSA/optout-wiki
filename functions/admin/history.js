@@ -20,7 +20,7 @@ export async function onRequestGet({ request, env }) {
   const offset = (query.page - 1) * PAGE_SIZE;
 
   const { results } = await env.DB.prepare(
-    `SELECT id, created_at, category, level, title, status, moderated_by, moderated_at FROM submissions WHERE ${whereSql} ${orderSql} LIMIT ? OFFSET ?`,
+    `SELECT id, created_at, type, category, level, title, status, moderated_by, moderated_at FROM submissions WHERE ${whereSql} ${orderSql} LIMIT ? OFFSET ?`,
   )
     .bind(...params, PAGE_SIZE, offset)
     .all();
@@ -38,7 +38,7 @@ function renderHistory(rows, query, count) {
       const when = r.moderated_at ? new Date(r.moderated_at).toISOString().slice(0, 10) : null;
       return `<article>
   <input type="checkbox" name="id" value="${escapeHtml(r.id)}" form="bulk-form">
-  <h2>${escapeHtml(r.title)}</h2>
+  <h2><span class="type-badge">[${escapeHtml(r.type || 'guide')}]</span> ${escapeHtml(r.title)}</h2>
   <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level || '')} &middot; ${escapeHtml(r.status)}</p>
   <p>moderated by ${escapeHtml(r.moderated_by || 'unknown')}${when ? ` on ${escapeHtml(when)}` : ''}</p>
 </article>`;

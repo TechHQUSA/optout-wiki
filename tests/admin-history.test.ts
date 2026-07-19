@@ -76,3 +76,12 @@ test('returns 403 when the gate denies', async () => {
   const res = await onRequestGet({ request: req(), env: { DB: dbWith([]) } });
   expect(res.status).toBe(403);
 });
+
+test('history rows carry a type badge', async () => {
+  const db = dbWith([
+    { id: 'h1', created_at: 1, type: 'software', category: 'Network', level: null, title: 'Mullvad', status: 'approved', moderated_by: 'm@x', moderated_at: 1000 },
+  ]);
+  const res = await onRequestGet({ request: req(), env: { DB: db } });
+  const html = await res.text();
+  expect(html).toContain('[software]');
+});

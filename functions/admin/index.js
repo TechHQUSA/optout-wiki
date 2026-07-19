@@ -18,7 +18,7 @@ export async function onRequestGet({ request, env }) {
   const offset = (query.page - 1) * PAGE_SIZE;
 
   const { results } = await env.DB.prepare(
-    `SELECT id, created_at, category, level, title, body, sources, contributor, anonymous FROM submissions WHERE ${whereSql} ${orderSql} LIMIT ? OFFSET ?`,
+    `SELECT id, created_at, type, category, level, title, body, sources, contributor, anonymous, url, tags, summary FROM submissions WHERE ${whereSql} ${orderSql} LIMIT ? OFFSET ?`,
   )
     .bind(...params, PAGE_SIZE, offset)
     .all();
@@ -36,18 +36,32 @@ function actionForm(id, action, label) {
 function renderQueue(rows, query, count) {
   const pages = totalPages(count);
   const items = rows
-    .map(
-      (r) => `<article>
-  <input type="checkbox" name="id" value="${escapeHtml(r.id)}" form="bulk-form">
-  <h2>${escapeHtml(r.title)}</h2>
-  <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level || '')} &middot; by ${escapeHtml(r.anonymous ? 'anonymous' : r.contributor || '')}</p>
+    .map((r) => {
+      const badge = `<span class="type-badge">[${escapeHtml(r.type || 'guide')}]</span>`;
+      // Software rows: url/summary/tags are the would-be-published fields, the
+      // body is the contributor's justification (moderator-only) and sources
+      // are their evidence links — all untrusted, all escaped. Rendered as
+      // text, never as live <a href> (a hostile submitted URL stays inert).
+      const softwareBlock =
+        r.type === 'software'
+          ? `<p>url: ${escapeHtml(r.url || '')}</p>
+  <p>summary: ${escapeHtml(r.summary || '')}</p>
+  <p>tags: ${escapeHtml(r.tags || '[]')}</p>
+  <p>justification:</p>
   <pre>${escapeHtml(r.body)}</pre>
-  <p>sources: ${escapeHtml(r.sources || '[]')}</p>
+  <p>evidence: ${escapeHtml(r.sources || '[]')}</p>`
+          : `<pre>${escapeHtml(r.body)}</pre>
+  <p>sources: ${escapeHtml(r.sources || '[]')}</p>`;
+      return `<article>
+  <input type="checkbox" name="id" value="${escapeHtml(r.id)}" form="bulk-form">
+  <h2>${badge} ${escapeHtml(r.title)}</h2>
+  <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level || '')} &middot; by ${escapeHtml(r.anonymous ? 'anonymous' : r.contributor || '')}</p>
+  ${softwareBlock}
   ${actionForm(r.id, 'approve', 'Approve')}
   ${actionForm(r.id, 'reject', 'Reject')}
   ${actionForm(r.id, 'delete', 'Delete')}
-</article>`,
-    )
+</article>`;
+    })
     .join('\n');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Moderation queue</title><link rel="stylesheet" href="/admin.css"></head><body>
 ${renderNav('queue')}
