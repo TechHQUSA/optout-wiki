@@ -25,8 +25,20 @@
 const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
 ---
 <form id="contribute-form" class="contribute-form">
-  <div class="form-head">Draft a new guide</div>
+  <div class="form-head">Draft a submission</div>
 
+  <!-- Guide/Software toggle. The radios are direct children of the form so
+       the pure-CSS `:checked ~` sibling rules below can swap the two
+       fieldsets with no JS (the client script only syncs `disabled` and the
+       ?type=software preselect). -->
+  <input type="radio" id="ctype-guide" name="ctype" value="guide" class="type-radio" checked />
+  <input type="radio" id="ctype-software" name="ctype" value="software" class="type-radio" />
+  <div class="type-toggle" role="radiogroup" aria-label="Submission type">
+    <label for="ctype-guide">Opt-out guide</label>
+    <label for="ctype-software">Software / service</label>
+  </div>
+
+  <fieldset class="fields-guide">
   <label class="field-label" for="cf-title">Guide title</label>
   <input
     id="cf-title"
@@ -70,6 +82,72 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
     placeholder="https://example.com/privacy, https://example.com/opt-out"
     class="field-input field-mono"
   />
+  </fieldset>
+
+  <!-- Software/service recommendation fields. Starts `disabled` (guide is the
+       default type) so its inputs stay out of FormData and native validation;
+       the client script flips `disabled` when the toggle changes. -->
+  <fieldset class="fields-software" disabled>
+  <label class="field-label" for="cf-sw-name">Tool name</label>
+  <input id="cf-sw-name" name="sw-name" required placeholder="e.g. Mullvad VPN" class="field-input" />
+
+  <div class="field-row">
+    <div>
+      <label class="field-label" for="cf-sw-category">Category</label>
+      <select id="cf-sw-category" name="sw-category" class="field-input">
+        <option>Browser</option>
+        <option>Search</option>
+        <option>Email</option>
+        <option>Messaging</option>
+        <option>Network</option>
+        <option>DNS</option>
+        <option>Passwords</option>
+        <option>OS</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="cf-sw-url">Homepage URL</label>
+      <input
+        id="cf-sw-url"
+        name="sw-url"
+        type="url"
+        required
+        placeholder="https://mullvad.net"
+        class="field-input field-mono"
+      />
+    </div>
+  </div>
+
+  <label class="field-label" for="cf-sw-summary">One-line summary <span class="field-hint">— what it replaces or protects</span></label>
+  <input
+    id="cf-sw-summary"
+    name="sw-summary"
+    required
+    placeholder="Anonymous, no-account VPN paid by cash or crypto."
+    class="field-input"
+  />
+
+  <label class="field-label" for="cf-sw-tags">Tags <span class="field-hint">— comma-separated, e.g. vpn, no-logs</span></label>
+  <input id="cf-sw-tags" name="sw-tags" placeholder="vpn, no-logs" class="field-input field-mono" />
+
+  <label class="field-label" for="cf-sw-justification">Why recommend it? <span class="field-hint">— open source? audited? telemetry-free? Seen by moderators only</span></label>
+  <textarea
+    id="cf-sw-justification"
+    name="sw-justification"
+    rows="5"
+    placeholder="Open source (GPL), independently audited in 2025, no account required..."
+    class="field-input field-mono"
+  ></textarea>
+
+  <label class="field-label" for="cf-sw-sources">Evidence links <span class="field-hint">— comma-separated URLs: audit reports, license, docs</span></label>
+  <input
+    id="cf-sw-sources"
+    name="sw-sources"
+    placeholder="https://example.com/audit, https://github.com/example"
+    class="field-input field-mono"
+  />
+  </fieldset>
 
   <div class="field-foot">
     <label class="checkbox-label">
@@ -132,6 +210,29 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
   const contributor = document.getElementById('cf-contributor') as HTMLInputElement | null;
   const out = document.getElementById('contribute-result') as HTMLElement | null;
   const submitBtn = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const guideRadio = document.getElementById('ctype-guide') as HTMLInputElement | null;
+  const swRadio = document.getElementById('ctype-software') as HTMLInputElement | null;
+  const guideFields = form?.querySelector<HTMLFieldSetElement>('.fields-guide');
+  const swFields = form?.querySelector<HTMLFieldSetElement>('.fields-software');
+
+  // Visibility is pure CSS (`:checked ~` rules); JS only keeps the inactive
+  // fieldset `disabled` so its inputs stay out of FormData and out of native
+  // constraint validation (a hidden required field would otherwise block
+  // submits of the other type).
+  function syncTypeState() {
+    const software = !!swRadio?.checked;
+    if (guideFields) guideFields.disabled = software;
+    if (swFields) swFields.disabled = !software;
+  }
+  guideRadio?.addEventListener('change', syncTypeState);
+  swRadio?.addEventListener('change', syncTypeState);
+
+  // /contribute?type=software (the /software page's "Suggest a tool" link)
+  // preselects the Software half of the toggle.
+  if (swRadio && new URLSearchParams(location.search).get('type') === 'software') {
+    swRadio.checked = true;
+  }
+  syncTypeState();
 
   // UX nicety mirroring the server's own semantics (functions/api/contribute.js
   // drops `contributor` whenever `anonymous` is true) — dim + disable the name
@@ -161,20 +262,39 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
       return;
     }
 
-    const payload = {
-      title: fd.get('title'),
-      category: fd.get('category'),
-      level: fd.get('level'),
-      body: fd.get('body'),
-      sources: String(fd.get('sources') || '')
+    const splitList = (v: FormDataEntryValue | null) =>
+      String(v || '')
         .split(',')
         .map((s) => s.trim())
-        .filter(Boolean),
+        .filter(Boolean);
+
+    const shared = {
       anonymous: fd.get('anonymous') === 'on',
       contributor: fd.get('contributor'),
       website: fd.get('website'),
       altcha,
     };
+    const payload =
+      fd.get('ctype') === 'software'
+        ? {
+            type: 'software',
+            name: fd.get('sw-name'),
+            category: fd.get('sw-category'),
+            url: fd.get('sw-url'),
+            summary: fd.get('sw-summary'),
+            tags: splitList(fd.get('sw-tags')),
+            justification: fd.get('sw-justification'),
+            sources: splitList(fd.get('sw-sources')),
+            ...shared,
+          }
+        : {
+            title: fd.get('title'),
+            category: fd.get('category'),
+            level: fd.get('level'),
+            body: fd.get('body'),
+            sources: splitList(fd.get('sources')),
+            ...shared,
+          };
 
     if (submitBtn) submitBtn.disabled = true;
     try {
@@ -190,6 +310,7 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
       if (res.ok) {
         form.reset();
         syncContributorState();
+        syncTypeState();
       }
     } catch {
       showResult('Something went wrong — try again.', false);
@@ -211,6 +332,51 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
     font-weight: 600;
     font-size: 22px;
     margin-bottom: 22px;
+  }
+  /* Guide/Software toggle: visually-hidden radios + label pills; the checked
+     radio drives both the pill highlight and which fieldset shows, all in
+     CSS (`~` general-sibling), so the swap works before/without JS. */
+  .type-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .type-toggle {
+    display: inline-flex;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 22px;
+  }
+  .type-toggle label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  #ctype-guide:checked ~ .type-toggle label[for='ctype-guide'],
+  #ctype-software:checked ~ .type-toggle label[for='ctype-software'] {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .fields-guide,
+  .fields-software {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+  }
+  .fields-software {
+    display: none;
+  }
+  #ctype-software:checked ~ .fields-guide {
+    display: none;
+  }
+  #ctype-software:checked ~ .fields-software {
+    display: block;
   }
   .field-label {
     display: block;

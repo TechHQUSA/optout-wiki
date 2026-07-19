@@ -68,6 +68,7 @@ const jsonLdSafe = safeJsonLd(jsonLd);
         Private replacements for the apps leaking your data, vetted for open-source licensing, no
         telemetry, and independent audits.
       </p>
+      <a class="suggest-link" href="/contribute?type=software">Suggest a tool &rarr;</a>
     </section>
 
     {categories.map(([cat, items]) => (
@@ -140,6 +141,20 @@ const jsonLdSafe = safeJsonLd(jsonLd);
     color: var(--muted);
     max-width: 600px;
     margin: 0;
+  }
+  .suggest-link {
+    display: inline-block;
+    margin-top: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+  }
+  .suggest-link:hover {
+    border-color: var(--accent);
   }
   .cat-section {
     padding-top: 28px;

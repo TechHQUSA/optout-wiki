@@ -20,3 +20,9 @@ test('software page links each entry to its url with rel="noopener"', async () =
   expect(html).toContain('href="https://mullvad.net"');
   expect(html).toMatch(/href="https:\/\/mullvad\.net"[^>]*rel="noopener/);
 });
+
+test('software page links to the software contribute form', async () => {
+  const c = await AstroContainer.create();
+  const html = await c.renderToString(Software);
+  expect(html).toContain('href="/contribute?type=software"');
+});
