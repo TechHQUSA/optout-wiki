@@ -42,3 +42,11 @@ test('renderPagination links preserve filters via pageLink', () => {
   const html = renderPagination('/admin', query, 1, 2);
   expect(html).toContain('/admin?q=foo&page=2');
 });
+
+test('renderFilterForm offers a type filter with the current value selected', () => {
+  const html = renderFilterForm({ q: '', category: '', level: '', type: 'software', sort: 'newest' }, '/admin');
+  expect(html).toContain('name="type"');
+  expect(html).toMatch(/<option value="software" selected>Software<\/option>/);
+  expect(html).toMatch(/<option value="guide">Guide<\/option>/);
+  expect(html).toMatch(/<option value="">Any type<\/option>/);
+});

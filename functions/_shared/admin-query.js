@@ -19,16 +19,18 @@ export function escapeLike(s) {
 
 /**
  * @param {URL} url
- * @returns {{q: string, category: string, level: string, sort: 'newest'|'oldest', page: number}}
+ * @returns {{q: string, category: string, level: string, type: string, sort: 'newest'|'oldest', page: number}}
  */
 export function parseAdminQuery(url) {
   const q = url.searchParams.get('q') || '';
   const category = url.searchParams.get('category') || '';
   const level = url.searchParams.get('level') || '';
+  const typeRaw = url.searchParams.get('type') || '';
+  const type = typeRaw === 'guide' || typeRaw === 'software' ? typeRaw : '';
   const sort = url.searchParams.get('sort') === 'oldest' ? 'oldest' : 'newest';
   const pageRaw = parseInt(url.searchParams.get('page') || '1', 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  return { q, category, level, sort, page };
+  return { q, category, level, type, sort, page };
 }
 
 /**
@@ -36,7 +38,7 @@ export function parseAdminQuery(url) {
  * as the `?` placeholders) for a submissions list query. `statusClause` is a
  * literal SQL fragment the caller supplies (e.g. "status = 'pending'" for
  * the queue, "status != 'pending'" for history) — never user input.
- * @param {{q: string, category: string, level: string, sort: string}} query
+ * @param {{q: string, category: string, level: string, type?: string, sort: string}} query
  * @param {string} statusClause
  * @returns {{whereSql: string, orderSql: string, params: unknown[]}}
  */
@@ -56,6 +58,10 @@ export function buildAdminListQuery(query, statusClause) {
     conditions.push('level = ?');
     params.push(query.level);
   }
+  if (query.type) {
+    conditions.push('type = ?');
+    params.push(query.type);
+  }
   const whereSql = conditions.join(' AND ');
   const orderSql = query.sort === 'oldest' ? 'ORDER BY created_at ASC' : 'ORDER BY created_at DESC';
   return { whereSql, orderSql, params };
@@ -64,7 +70,7 @@ export function buildAdminListQuery(query, statusClause) {
 /**
  * A "?..." query-string suffix (or "" if there's nothing to encode) that
  * preserves the current filters while linking to a different page number.
- * @param {{q: string, category: string, level: string, sort: string}} query
+ * @param {{q: string, category: string, level: string, type?: string, sort: string}} query
  * @param {number} page
  * @returns {string}
  */
@@ -73,6 +79,7 @@ export function pageLink(query, page) {
   if (query.q) params.set('q', query.q);
   if (query.category) params.set('category', query.category);
   if (query.level) params.set('level', query.level);
+  if (query.type) params.set('type', query.type);
   if (query.sort === 'oldest') params.set('sort', 'oldest');
   if (page > 1) params.set('page', String(page));
   const qs = params.toString();
