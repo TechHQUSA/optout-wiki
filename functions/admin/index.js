@@ -57,9 +57,11 @@ function renderQueue(rows, query, count) {
   <h2>${badge} ${escapeHtml(r.title)}</h2>
   <p><strong>${escapeHtml(r.category)}</strong> &middot; ${escapeHtml(r.level || '')} &middot; by ${escapeHtml(r.anonymous ? 'anonymous' : r.contributor || '')}</p>
   ${softwareBlock}
-  ${actionForm(r.id, 'approve', 'Approve')}
-  ${actionForm(r.id, 'reject', 'Reject')}
-  ${actionForm(r.id, 'delete', 'Delete')}
+  <div class="admin-actions">
+    ${actionForm(r.id, 'approve', 'Approve')}
+    ${actionForm(r.id, 'reject', 'Reject')}
+    ${actionForm(r.id, 'delete', 'Delete')}
+  </div>
 </article>`;
     })
     .join('\n');
