@@ -22,44 +22,161 @@ const nav = [
   { label: 'About', href: '/#about', key: 'about' },
 ];
 ---
-<header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:28px;padding:13px 28px;background:color-mix(in srgb, var(--bg) 88%, transparent);border-bottom:1px solid var(--border);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)">
-  <a href="/" style="display:flex;align-items:center;gap:1px;text-decoration:none;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.025em;color:var(--ink);flex-shrink:0">
-    <span>Opt</span><span style="background:var(--ink);color:var(--bg);padding:1px 7px 2px;border-radius:2px">Out</span>
+<header class="site-header">
+  <a href="/" class="logo-link">
+    <span>Opt</span><span class="logo-badge">Out</span>
   </a>
-  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;color:var(--muted);border:1px solid var(--border);padding:2px 6px;border-radius:3px;margin-left:-18px">.wiki</span>
+  <span class="tld-badge">.wiki</span>
 
-  <nav style="display:flex;align-items:center;gap:4px;margin-left:6px">
+  <nav class="site-nav">
     {nav.map((item) => (
       <a
         href={item.href}
         class="nav-link"
-        style="position:relative;display:block;padding:8px 12px;text-decoration:none;font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:14.5px;color:var(--ink);border-radius:6px"
       >
         {item.label}
         {current === item.key && (
-          <span style="position:absolute;left:12px;right:12px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px"></span>
+          <span class="nav-active-bar"></span>
         )}
       </a>
     ))}
   </nav>
 
-  <div style="flex:1"></div>
+  <div class="nav-spacer"></div>
 
-  <label style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;min-width:190px;color:var(--muted)">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><line x1="11" y1="11" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-    <input placeholder="Search opt-outs…" style="border:none;outline:none;background:transparent;font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;color:var(--ink);width:100%"/>
-    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 4px;flex-shrink:0">/</span>
+  <label class="search-box">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" class="search-icon"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><line x1="11" y1="11" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <input placeholder="Search opt-outs…" class="search-input"/>
+    <span class="search-kbd">/</span>
   </label>
 
   <ThemeToggle />
 
-  <a href="/contribute" class="contribute-link" style="display:flex;align-items:center;gap:7px;text-decoration:none;background:var(--accent);color:var(--accent-ink);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;padding:9px 16px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent)">
+  <a href="/contribute" class="contribute-link">
     Contribute
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </a>
 </header>
 
 <style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 13px 28px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(10px) saturate(1.3);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  }
+  .logo-link {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    text-decoration: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .logo-badge {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 1px 7px 2px;
+    border-radius: 2px;
+  }
+  .tld-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: -18px;
+  }
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+  }
+  .nav-link {
+    position: relative;
+    display: block;
+    padding: 8px 12px;
+    text-decoration: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    font-size: 14.5px;
+    color: var(--ink);
+    border-radius: 6px;
+  }
+  .nav-active-bar {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: -1px;
+    height: 2.5px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .nav-spacer {
+    flex: 1;
+  }
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 11px;
+    min-width: 190px;
+    color: var(--muted);
+  }
+  .search-icon {
+    flex-shrink: 0;
+  }
+  .search-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    width: 100%;
+  }
+  .search-kbd {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    flex-shrink: 0;
+  }
+  .contribute-link {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
   /* Ported from the prototype's style-hover="..." runtime attribute, which
      has no HTML/CSS equivalent — expressed here as scoped :hover rules. */
   .nav-link:hover {

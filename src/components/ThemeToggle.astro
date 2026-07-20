@@ -1,9 +1,22 @@
 ---
 ---
-<button id="theme-toggle" aria-label="Toggle theme" type="button"
-  style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--ink)">
+<button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme" type="button">
   <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="currentColor"/><circle cx="10.8" cy="5.4" r="5.6" fill="var(--bg)"/></svg>
 </button>
+<style>
+  .theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+</style>
 <script>
   const btn = document.getElementById('theme-toggle');
   btn?.addEventListener('click', () => {

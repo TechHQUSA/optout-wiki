@@ -64,7 +64,7 @@ import Footer from '../components/Footer.astro';
           name="website"
           tabindex="-1"
           autocomplete="off"
-          style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+          class="honeypot-field"
           aria-hidden="true"
         />
 
@@ -250,6 +250,14 @@ import Footer from '../components/Footer.astro';
   }
   .review-head {
     padding: 52px 0 30px;
+  }
+  /* honeypot: same trap as the contribute form */
+  .honeypot-field {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
   }
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;

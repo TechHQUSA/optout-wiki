@@ -32,8 +32,9 @@ const categories = Object.entries(byCat);
 
 // Monogram mark colors, cycled per entry — ported palette from the
 // prototype's hardcoded per-tool `color` field, which this schema has no
-// equivalent of.
-const palette = ['#caf04a', '#ffd27f', '#9fd0ff', '#7fe0b0', '#c9b8ff', '#f3a9c0'];
+// equivalent of. Applied via `tool-mark-N` classes (see <style> below), not
+// an inline style attribute, so the CSP's style-src can drop 'unsafe-inline'.
+const PALETTE_SIZE = 6;
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -79,7 +80,7 @@ const jsonLdSafe = safeJsonLd(jsonLd);
             <article class="tool-card" data-name={e.data.name}>
               <a href={e.data.url} rel="noopener" target="_blank" class="tool-card-link">
                 <div class="tool-card-top">
-                  <div class="tool-mark" style={`background:${palette[i % palette.length]}`} aria-hidden="true">
+                  <div class={`tool-mark tool-mark-${i % PALETTE_SIZE}`} aria-hidden="true">
                     {e.data.name.charAt(0)}
                   </div>
                   <span class="visit-arrow" aria-hidden="true">
@@ -209,6 +210,12 @@ const jsonLdSafe = safeJsonLd(jsonLd);
     font-weight: 700;
     font-size: 18px;
   }
+  .tool-mark-0 { background: #caf04a; }
+  .tool-mark-1 { background: #ffd27f; }
+  .tool-mark-2 { background: #9fd0ff; }
+  .tool-mark-3 { background: #7fe0b0; }
+  .tool-mark-4 { background: #c9b8ff; }
+  .tool-mark-5 { background: #f3a9c0; }
   .visit-arrow {
     display: flex;
     align-items: center;

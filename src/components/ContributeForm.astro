@@ -167,7 +167,7 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
     name="website"
     tabindex="-1"
     autocomplete="off"
-    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+    class="honeypot-field"
     aria-hidden="true"
   />
 
@@ -334,6 +334,14 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
     font-weight: 600;
     font-size: 22px;
     margin-bottom: 22px;
+  }
+  /* honeypot: hidden from humans, left for bots that fill every field */
+  .honeypot-field {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
   }
   /* Guide/Software toggle: visually-hidden radios + label pills; the checked
      radio drives both the pill highlight and which fieldset shows, all in

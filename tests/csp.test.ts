@@ -11,7 +11,7 @@
 // fails loudly here instead of silently breaking the theme (or the CSP) in
 // production.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
 function inlineNoFlashScript(): string {
@@ -33,4 +33,34 @@ test("script-src drops 'unsafe-inline' and pins the no-flash script hash", () =>
   expect(scriptSrc).not.toContain("'unsafe-inline'");
   const hash = sha256Base64(inlineNoFlashScript());
   expect(scriptSrc).toContain(`'sha256-${hash}'`);
+});
+
+test("style-src drops 'unsafe-inline' (all component styles are classes, not style=\"\" attributes)", () => {
+  const headers = readFileSync('public/_headers', 'utf8');
+  const csp = headers.split('\n').find((l) => l.includes('Content-Security-Policy')) ?? '';
+  const styleSrc = csp.match(/style-src[^;]*/)?.[0] ?? '';
+
+  expect(styleSrc).not.toContain("'unsafe-inline'");
+  expect(styleSrc).toContain("'self'");
+});
+
+test('no inline style="" attribute or <style> tag survives into any built page (style-src has no unsafe-inline to cover them)', () => {
+  const dist = 'dist';
+  const htmlFiles: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(p);
+      else if (entry.name.endsWith('.html')) htmlFiles.push(p);
+    }
+  };
+  walk(dist);
+  expect(htmlFiles.length).toBeGreaterThan(0);
+
+  const offenders: string[] = [];
+  for (const file of htmlFiles) {
+    const html = readFileSync(file, 'utf8');
+    if (/\sstyle="/.test(html) || /<style>/.test(html)) offenders.push(file);
+  }
+  expect(offenders, `pages with inline style: ${offenders.join(', ')}`).toEqual([]);
 });

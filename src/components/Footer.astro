@@ -39,41 +39,146 @@ const columns = [
   },
 ];
 ---
-<footer style="background:var(--surface-2);color:var(--ink);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif">
-  <div style="max-width:1180px;margin:0 auto;padding:64px 28px 28px;box-sizing:border-box">
+<footer class="site-footer">
+  <div class="footer-inner">
 
-    <div style="display:flex;flex-wrap:wrap;gap:48px 32px;align-items:flex-start">
-      <div style="flex:1 1 280px;min-width:260px">
-        <div style="display:flex;align-items:center;gap:1px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;letter-spacing:-0.025em">
-          <span>Opt</span><span style="background:var(--ink);color:var(--bg);padding:1px 7px 2px;border-radius:2px">Out</span>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <span>Opt</span><span class="footer-logo-badge">Out</span>
         </div>
-        <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:color-mix(in srgb, var(--ink) 72%, transparent);max-width:300px">The community wiki for taking your data back. Written by people who opt out, vetted in the open, free forever.</p>
-        <div style="display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.04em;color:var(--accent);border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);border-radius:999px;padding:6px 12px">
-          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)"></span>
+        <p class="footer-tagline">The community wiki for taking your data back. Written by people who opt out, vetted in the open, free forever.</p>
+        <div class="footer-pill">
+          <span class="footer-pill-dot"></span>
           NO TRACKERS &middot; NO ADS &middot; NO ACCOUNT NEEDED
         </div>
       </div>
 
       {columns.map((col) => (
-        <div style="flex:0 1 170px;min-width:150px">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--ink) 50%, transparent);margin-bottom:16px">{col.title}</div>
-          <div style="display:flex;flex-direction:column;gap:11px">
+        <div class="footer-col">
+          <div class="footer-col-title">{col.title}</div>
+          <div class="footer-col-links">
             {col.links.map((link) => (
-              <a href={link.href} class="footer-link" style="text-decoration:none;color:color-mix(in srgb, var(--ink) 82%, transparent);font-size:14.5px">{link.label}</a>
+              <a href={link.href} class="footer-link">{link.label}</a>
             ))}
           </div>
         </div>
       ))}
     </div>
 
-    <div style="margin-top:56px;padding-top:22px;border-top:1px solid color-mix(in srgb, var(--ink) 16%, transparent);display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;justify-content:space-between">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:color-mix(in srgb, var(--ink) 55%, transparent)">Content licensed <span style="color:color-mix(in srgb, var(--ink) 85%, transparent)">CC BY-SA 4.0</span> &middot; Code is open source</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:color-mix(in srgb, var(--ink) 55%, transparent)">Hosted on the edge &middot; optout.wiki</div>
+    <div class="footer-bottom">
+      <div class="footer-legal">Content licensed <span class="footer-legal-strong">CC BY-SA 4.0</span> &middot; Code is open source</div>
+      <div class="footer-legal">Hosted on the edge &middot; optout.wiki</div>
     </div>
   </div>
 </footer>
 
 <style>
+  .site-footer {
+    background: var(--surface-2);
+    color: var(--ink);
+    border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .footer-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 64px 28px 28px;
+    box-sizing: border-box;
+  }
+  .footer-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 48px 32px;
+    align-items: flex-start;
+  }
+  .footer-brand {
+    flex: 1 1 280px;
+    min-width: 260px;
+  }
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: -0.025em;
+  }
+  .footer-logo-badge {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 1px 7px 2px;
+    border-radius: 2px;
+  }
+  .footer-tagline {
+    margin: 16px 0 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--ink) 72%, transparent);
+    max-width: 300px;
+  }
+  .footer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+  .footer-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .footer-col {
+    flex: 0 1 170px;
+    min-width: 150px;
+  }
+  .footer-col-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    margin-bottom: 16px;
+  }
+  .footer-col-links {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .footer-link {
+    text-decoration: none;
+    color: color-mix(in srgb, var(--ink) 82%, transparent);
+    font-size: 14.5px;
+  }
+  .footer-bottom {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer-legal {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--ink) 55%, transparent);
+  }
+  .footer-legal-strong {
+    color: color-mix(in srgb, var(--ink) 85%, transparent);
+  }
+
   /* Ported from the prototype's style-hover="..." runtime attribute, which
      has no HTML/CSS equivalent — expressed here as a scoped :hover rule. */
   .footer-link:hover {
