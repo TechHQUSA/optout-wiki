@@ -31,6 +31,20 @@ test('moderation-audit migration adds moderated_by/moderated_at columns to submi
   expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN moderated_at INTEGER/);
 });
 
+test('open-review migration defines comments + endorsements and hardening audit columns', () => {
+  const sql = readFileSync('migrations/0005_open_review.sql', 'utf8');
+  expect(sql).toMatch(/CREATE TABLE comments/);
+  expect(sql).toMatch(/idx_comments_submission/);
+  expect(sql).toMatch(/CREATE TABLE endorsements/);
+  // distinct-editor guarantee lives in the schema: PK over (submission, moderator)
+  expect(sql).toMatch(/PRIMARY KEY \(submission_id, moderator\)/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN hardened_by TEXT/);
+  expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN hardened_at INTEGER/);
+  // comments carry no IP-derived value (anonymity parity with submissions)
+  const commentsBlock = sql.match(/CREATE TABLE comments \(([\s\S]*?)\);/)?.[1] ?? '';
+  expect(commentsBlock).not.toMatch(/ip/i);
+});
+
 test('software-submissions migration adds type/url/tags/summary columns and type index', () => {
   const sql = readFileSync('migrations/0004_software_submissions.sql', 'utf8');
   expect(sql).toMatch(/ALTER TABLE submissions ADD COLUMN type TEXT NOT NULL DEFAULT 'guide'/);
