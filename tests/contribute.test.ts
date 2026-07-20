@@ -3,6 +3,7 @@ import { expect, test, vi, beforeEach } from 'vitest';
 import { handleContribute } from '../functions/api/contribute.js';
 import { verifyAltcha } from '../functions/_shared/altcha.js';
 import { hashIp } from '../functions/_shared/security.js';
+import { recordAbuseEvent } from '../functions/_shared/abuse.js';
 
 // A trackable mock (not a plain async fn) so tests can assert verifyAltcha
 // was never called for requests rejected on cheaper grounds (honeypot,
@@ -10,9 +11,11 @@ import { hashIp } from '../functions/_shared/security.js';
 // it, so those paths must not reach it at all. See the check-order note
 // atop functions/api/contribute.js.
 vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: vi.fn(async (p: string) => p === 'good') }));
+vi.mock('../functions/_shared/abuse.js', () => ({ recordAbuseEvent: vi.fn(async () => {}) }));
 
 beforeEach(() => {
   vi.mocked(verifyAltcha).mockClear();
+  vi.mocked(recordAbuseEvent).mockClear();
 });
 
 function makeDb() {
@@ -640,4 +643,24 @@ test('software tags are trimmed and empty entries dropped before storage', async
   );
   expect(res.status).toBe(200);
   expect(db.rows[0]).toContain(JSON.stringify(['vpn', 'no-logs']));
+});
+
+test('honeypot trip records a "honeypot" abuse event', async () => {
+  const db = makeDb();
+  const body = { ...valid, website: 'i-am-a-bot' };
+  await handleContribute(req(body), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'honeypot', 5000);
+});
+
+test('rate-limit rejection records a "rate" abuse event', async () => {
+  const db = makeRateLimitedDb(5);
+  await handleContribute(req(valid), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'rate', 5000);
+});
+
+test('a failed ALTCHA solve records an "altcha" abuse event', async () => {
+  const db = makeDb();
+  const body = { ...valid, altcha: 'bad' };
+  await handleContribute(req(body), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'altcha', 5000);
 });

@@ -33,6 +33,7 @@
 // could adapt.
 import { verifyAltcha } from '../_shared/altcha.js';
 import { hashIp, isHoneypotTripped, checkRateLimit } from '../_shared/security.js';
+import { recordAbuseEvent } from '../_shared/abuse.js';
 
 const LEVELS = new Set(['LOW', 'MED', 'HIGH']);
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -117,7 +118,10 @@ export async function handleContribute(request, env, now) {
 
   // 1. Honeypot: bots that fill the hidden field get a generic 400 —
   // no indication it was the honeypot specifically that tripped.
-  if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
+  if (isHoneypotTripped(data.website)) {
+    await recordAbuseEvent(env.DB, 'honeypot', now);
+    return json({ ok: false }, 400);
+  }
 
   // 1b. Type discriminator: absent means 'guide' (legacy payloads), only
   // 'guide'/'software' are valid — anything else fails closed before any
@@ -210,13 +214,17 @@ export async function handleContribute(request, env, now) {
     const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
     const ipHash = await hashIp(ip, env.IP_SALT);
     if (!(await checkRateLimit(env.DB, ipHash, now, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX))) {
+      await recordAbuseEvent(env.DB, 'rate', now);
       return json({ ok: false, error: 'rate' }, 429);
     }
 
     // 4. ALTCHA proof-of-work solution must verify, not be expired, and not
     // have been used before (verifyAltcha claims the signature as spent).
     // Deliberately last of the gates — see the file-header note on why.
-    if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
+    if (!(await verifyAltcha(data.altcha, env, env.DB, now))) {
+      await recordAbuseEvent(env.DB, 'altcha', now);
+      return json({ ok: false, error: 'altcha' }, 400);
+    }
 
     // 5. Insert as a pending submission for moderation. The submission row
     // deliberately stores NO ip_hash — the salted IP hash is used only above
