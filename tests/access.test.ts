@@ -169,17 +169,20 @@ test('verifyJwt rejects an unknown or missing kid when multiple keys are configu
   expect(await verifyJwt(tokenNoKid, jwks, { aud: AUD })).toBeNull();
 });
 
-test('DOCUMENTED QUIRK: with a single-key JWKS, a mismatched/missing kid still falls back to that sole key', async () => {
-  // verifyJwt's kid lookup is:
-  //   jwks.find((k) => k.kid === header.kid) || (jwks.length === 1 ? jwks[0] : null)
-  // So when the JWKS has exactly one entry (the common Cloudflare Access case
-  // outside of key-rotation windows), a kid mismatch or omission does NOT
-  // reject — it falls back to the sole key. This is NOT an auth bypass: the
-  // token's signature still has to validate against that one genuine
-  // Cloudflare-held private key, which an attacker cannot forge. It just
-  // means `kid` provides no additional enforcement in the single-key case.
-  // Recorded here as a characterization/regression test, not a vulnerability.
+test('a present-but-wrong kid is rejected even with a single-key JWKS (strict kid match)', async () => {
+  // verifyJwt's kid lookup only falls back to a sole configured key when kid
+  // is ABSENT from the header. A present kid must match exactly, so a wrong
+  // kid never silently passes just because there's only one key configured.
   const header = { alg: 'RS256', typ: 'JWT', kid: 'no-such-kid' };
+  const payload = { aud: AUD, exp: future() };
+  const signingInput = `${b64urlJson(header)}.${b64urlJson(payload)}`;
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', privateKey, new TextEncoder().encode(signingInput));
+  const token = `${signingInput}.${b64url(new Uint8Array(sig))}`;
+  expect(await verifyJwt(token, [publicJwk], { aud: AUD })).toBeNull();
+});
+
+test('an absent kid still falls back to a sole configured key', async () => {
+  const header = { alg: 'RS256', typ: 'JWT' };
   const payload = { aud: AUD, exp: future() };
   const signingInput = `${b64urlJson(header)}.${b64urlJson(payload)}`;
   const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', privateKey, new TextEncoder().encode(signingInput));

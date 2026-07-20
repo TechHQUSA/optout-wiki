@@ -39,7 +39,14 @@ export async function verifyJwt(token, jwks, { aud, now = Date.now(), iss } = {}
     return null;
   }
   if (header.alg !== 'RS256') return null;
-  const jwk = jwks.find((k) => k.kid === header.kid) || (jwks.length === 1 ? jwks[0] : null);
+  // A present kid must match exactly (no fallback) — only an absent kid may
+  // fall back to a sole configured key. Prevents a present-but-wrong kid
+  // from silently passing in the single-key steady state.
+  const jwk = header.kid
+    ? jwks.find((k) => k.kid === header.kid) || null
+    : jwks.length === 1
+      ? jwks[0]
+      : null;
   if (!jwk) return null;
 
   let key;
