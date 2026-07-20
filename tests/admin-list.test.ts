@@ -126,3 +126,74 @@ test('queue SELECT includes the software columns', async () => {
   expect(selectCall!.sql).toContain('tags');
   expect(selectCall!.sql).toContain('summary');
 });
+
+test('queue shows endorsement count, hardening checkboxes, and bulk-bar checklist', async () => {
+  const db = dbWith([
+    { id: 'a1', created_at: 1, type: 'guide', category: 'Cars', level: 'MED', title: 'T', body: 'B', sources: '[]', contributor: null, anonymous: 1, endorsement_count: 1 },
+  ]);
+  const res = await onRequestGet({ request: req(), env: { DB: db, MIN_APPROVALS: '2' } });
+  const html = await res.text();
+  expect(html).toContain('endorsements: 1/2');
+  expect(html).toContain('name="harden-stripped"');
+  expect(html).toContain('name="harden-tradeoffs"');
+  expect(html).toContain('name="harden-dated"');
+  expect(html).toContain('form="bulk-form" value="on"'); // bulk-bar copies
+});
+
+test('queue renders open-review comments escaped, with flag highlight and delete form', async () => {
+  const comments = [
+    { id: 'c1', submission_id: 'a1', created_at: 1, author: '<b>Evil</b>', body: '<script>x</script>', source_flag: 1 },
+  ];
+  const db = {
+    calls: [] as { sql: string; args: unknown[] }[],
+    prepare(sql: string) {
+      return {
+        bind(...args: unknown[]) {
+          (db as any).calls.push({ sql, args });
+          return {
+            async all() {
+              if (sql.includes('FROM comments')) return { results: comments };
+              return { results: [{ id: 'a1', created_at: 1, type: 'guide', category: 'Cars', level: 'MED', title: 'T', body: 'B', sources: '[]', contributor: null, anonymous: 1, endorsement_count: 0 }] };
+            },
+            async first() { return { n: 1 }; },
+          };
+        },
+      };
+    },
+  };
+  const res = await onRequestGet({ request: req(), env: { DB: db } });
+  const html = await res.text();
+  expect(html).toContain('Review comments (1)');
+  expect(html).not.toContain('<script>x</script>');
+  expect(html).toContain('&lt;script&gt;x&lt;/script&gt;');
+  expect(html).toContain('admin-comment-flag');
+  expect(html).toContain('action="/admin/delete-comment"');
+  const commentSql = (db as any).calls.find((c: any) => c.sql.includes('FROM comments')).sql;
+  expect(commentSql).toContain('deleted = 0');
+});
+
+test('queue renders the due-re-verification section from stale-guides.json via ASSETS', async () => {
+  const db = dbWith([]);
+  const env = {
+    DB: db,
+    ASSETS: {
+      async fetch() {
+        return new Response(JSON.stringify({ stale: [{ slug: 'old-guide', lastVerified: '2026-01-01', days: 200 }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      },
+    },
+  };
+  const res = await onRequestGet({ request: req(), env });
+  const html = await res.text();
+  expect(html).toContain('Due re-verification (1)');
+  expect(html).toContain('old-guide');
+});
+
+test('queue survives a missing/broken ASSETS binding (stale section omitted)', async () => {
+  const db = dbWith([]);
+  const res = await onRequestGet({ request: req(), env: { DB: db } }); // no ASSETS at all
+  expect(res.status).toBe(200);
+  expect(await res.text()).not.toContain('Due re-verification');
+});

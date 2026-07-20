@@ -1,0 +1,489 @@
+---
+// src/pages/review.astro
+// The public open-review page (pipeline stage 2): every pending submission,
+// its sources, and its community comments — readable by anyone, commentable
+// by anyone who solves the same ALTCHA proof-of-work that gates submissions.
+//
+// The queue lives in D1 and changes constantly, so this static shell renders
+// nothing at build time; the script island below fetches /api/review-feed
+// client-side and builds the DOM with createElement/textContent ONLY — feed
+// content (titles, bodies, comments) is untrusted user input and must never
+// touch innerHTML. The single comment form (one ALTCHA widget = one solve =
+// one comment) targets whichever card's "Comment" button was pressed via a
+// hidden submission_id field.
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Open review | OptOut.wiki"
+  description="Every pending guide and software submission, under public review. Read the drafts, test the steps, flag missing sources — no account needed."
+>
+  <Header current="contribute" />
+  <main class="review-main">
+    <section class="review-head">
+      <div class="eyebrow">Vetted in the open</div>
+      <h1>Open review</h1>
+      <p class="dek">
+        Everything below is a draft under public review — stage 2 of
+        <a href="/contribute#vetting">the vetting pipeline</a>. Read it, test the steps, and if a
+        claim has no working source, say so.
+      </p>
+    </section>
+
+    <div id="review-list" aria-live="polite">
+      <p class="review-status">Loading the review queue&hellip;</p>
+    </div>
+
+    <section class="comment-section">
+      <form id="comment-form" class="comment-form" hidden>
+        <div class="form-head">Comment on: <span id="comment-target-title" class="target-title"></span></div>
+        <input type="hidden" id="comment-submission-id" name="submission_id" value="" />
+
+        <label class="field-label" for="rc-body">Your comment</label>
+        <textarea
+          id="rc-body"
+          name="body"
+          required
+          rows="4"
+          maxlength="2000"
+          placeholder="I tested step 3 and the toggle has moved to Settings > Privacy…"
+          class="field-input"
+        ></textarea>
+
+        <label class="checkbox-label flag-label">
+          <input type="checkbox" id="rc-flag" name="source_flag" />
+          Flag: a claim here has no working source
+        </label>
+
+        <label class="field-label" for="rc-author">Name <span class="field-hint">— optional</span></label>
+        <input id="rc-author" name="author" maxlength="120" placeholder="Anonymous" class="field-input field-author" />
+
+        <!-- honeypot: same trap as the contribute form -->
+        <input
+          name="website"
+          tabindex="-1"
+          autocomplete="off"
+          style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+          aria-hidden="true"
+        />
+
+        <div class="altcha-row">
+          <altcha-widget challengeurl="/api/altcha-challenge" workerurl="/altcha-worker.js"></altcha-widget>
+        </div>
+
+        <div class="form-submit">
+          <button type="submit" class="submit-btn">Post comment</button>
+        </div>
+        <div id="comment-result" class="result" role="status" hidden></div>
+      </form>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  // Same external ALTCHA build + CSS as ContributeForm.astro (the default
+  // bundle's blob: worker is blocked by our CSP — see that component).
+  import 'altcha/altcha.ext';
+  import 'altcha/altcha.css';
+
+  const list = document.getElementById('review-list');
+  const form = document.getElementById('comment-form') as HTMLFormElement | null;
+  const targetTitle = document.getElementById('comment-target-title');
+  const submissionIdInput = document.getElementById('comment-submission-id') as HTMLInputElement | null;
+  const out = document.getElementById('comment-result') as HTMLElement | null;
+  const submitBtn = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+  // el(): the ONLY way this page builds feed DOM. Text goes in via
+  // textContent — untrusted feed strings can never become markup.
+  function el(tag: string, className: string | null, text?: string): HTMLElement {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function sourceLink(url: string): HTMLElement {
+    // Feed sources were validated http(s)-only server-side at submission
+    // time; still, belt-and-braces: render non-http(s) strings as text.
+    const isHttp = /^https?:\/\//i.test(url);
+    if (!isHttp) return el('span', 'source-item', url);
+    const a = el('a', 'source-item', url) as HTMLAnchorElement;
+    a.href = url;
+    a.rel = 'noopener nofollow';
+    a.target = '_blank';
+    return a;
+  }
+
+  function renderCard(sub: any): HTMLElement {
+    const card = el('article', 'review-card');
+    const head = el('div', 'card-head');
+    head.appendChild(el('span', 'card-badge', sub.type === 'software' ? 'software' : 'guide'));
+    head.appendChild(el('h2', 'card-title', sub.title || ''));
+    card.appendChild(head);
+
+    const meta = [sub.category, sub.level, sub.contributor ? `by ${sub.contributor}` : 'anonymous']
+      .filter(Boolean)
+      .join(' · ');
+    card.appendChild(el('p', 'card-meta', meta));
+
+    if (sub.type === 'software') {
+      if (sub.url) card.appendChild(el('p', 'card-field', `Homepage: ${sub.url}`));
+      if (sub.summary) card.appendChild(el('p', 'card-field', sub.summary));
+      if (Array.isArray(sub.tags) && sub.tags.length) {
+        card.appendChild(el('p', 'card-field card-tags', sub.tags.join(', ')));
+      }
+    } else if (sub.body) {
+      card.appendChild(el('pre', 'card-body', sub.body));
+    }
+
+    if (Array.isArray(sub.sources) && sub.sources.length) {
+      const src = el('div', 'card-sources');
+      src.appendChild(el('div', 'sources-label', sub.type === 'software' ? 'Evidence:' : 'Sources:'));
+      for (const s of sub.sources) src.appendChild(sourceLink(String(s)));
+      card.appendChild(src);
+    }
+
+    const comments = el('div', 'card-comments');
+    const commentList = Array.isArray(sub.comments) ? sub.comments : [];
+    comments.appendChild(
+      el('div', 'comments-label', commentList.length ? `Review comments (${commentList.length})` : 'No review comments yet'),
+    );
+    for (const c of commentList) {
+      const item = el('div', c.source_flag ? 'comment comment-flag' : 'comment');
+      if (c.source_flag) item.appendChild(el('span', 'flag-tag', 'no working source'));
+      item.appendChild(el('span', 'comment-author', c.author || 'anonymous'));
+      item.appendChild(el('p', 'comment-body', c.body || ''));
+      comments.appendChild(item);
+    }
+    card.appendChild(comments);
+
+    const btn = el('button', 'comment-btn', 'Comment') as HTMLButtonElement;
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      if (!form || !submissionIdInput || !targetTitle) return;
+      form.hidden = false;
+      submissionIdInput.value = sub.id;
+      targetTitle.textContent = sub.title || '';
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      (document.getElementById('rc-body') as HTMLTextAreaElement | null)?.focus();
+    });
+    card.appendChild(btn);
+    return card;
+  }
+
+  async function loadFeed() {
+    if (!list) return;
+    try {
+      const res = await fetch('/api/review-feed');
+      const data = await res.json();
+      list.replaceChildren();
+      if (!data.ok || !Array.isArray(data.submissions) || data.submissions.length === 0) {
+        list.appendChild(el('p', 'review-status', 'Nothing under review right now — the queue is empty.'));
+        if (form) form.hidden = true;
+        return;
+      }
+      for (const sub of data.submissions) list.appendChild(renderCard(sub));
+    } catch {
+      list.replaceChildren();
+      list.appendChild(el('p', 'review-status', 'Could not load the review queue — try again shortly.'));
+    }
+  }
+
+  function showResult(message: string, ok: boolean) {
+    if (!out) return;
+    out.hidden = false;
+    out.textContent = message;
+    out.classList.toggle('result-ok', ok);
+    out.classList.toggle('result-error', !ok);
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!form) return;
+    const fd = new FormData(form);
+    const altcha = fd.get('altcha');
+    if (!altcha) {
+      showResult('Please complete the verification widget before posting.', false);
+      return;
+    }
+    const payload = {
+      submission_id: fd.get('submission_id'),
+      body: fd.get('body'),
+      author: fd.get('author'),
+      source_flag: fd.get('source_flag') === 'on',
+      website: fd.get('website'),
+      altcha,
+    };
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const res = await fetch('/api/comment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      showResult(res.ok ? 'Comment posted.' : 'Something went wrong — try again.', res.ok);
+      if (res.ok) {
+        // reset() clears the hidden submission_id, so a follow-up submit
+        // would target nothing — hide the form until a card is re-picked.
+        form.reset();
+        await loadFeed();
+        form.hidden = true;
+        if (targetTitle) targetTitle.textContent = '';
+      }
+    } catch {
+      showResult('Something went wrong — try again.', false);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  loadFeed();
+</script>
+
+<style>
+  .review-main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 28px 72px;
+  }
+  .review-head {
+    padding: 52px 0 30px;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.03em;
+    margin: 0 0 14px;
+  }
+  .dek {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 640px;
+    margin: 0;
+  }
+  .dek a {
+    color: var(--accent);
+  }
+  .review-status {
+    color: var(--muted);
+    padding: 24px 0;
+  }
+  :global(.review-card) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+  :global(.card-head) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  :global(.card-badge) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 7px;
+  }
+  :global(.card-title) {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 21px;
+    margin: 0;
+  }
+  :global(.card-meta) {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin: 0 0 12px;
+  }
+  :global(.card-field) {
+    margin: 0 0 8px;
+    font-size: 14.5px;
+  }
+  :global(.card-tags) {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  :global(.card-body) {
+    white-space: pre-wrap;
+    background: var(--surface-2);
+    border-radius: 9px;
+    padding: 12px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  :global(.card-sources) {
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+  :global(.sources-label),
+  :global(.comments-label) {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  :global(.source-item) {
+    display: block;
+    color: var(--accent);
+    word-break: break-all;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+  }
+  :global(.card-comments) {
+    border-top: 1px solid var(--border);
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+  :global(.comment) {
+    background: var(--surface-2);
+    border-radius: 9px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  :global(.comment-flag) {
+    border: 1px solid color-mix(in srgb, #e5484d 45%, var(--border));
+  }
+  :global(.flag-tag) {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #e5484d;
+    margin-right: 8px;
+  }
+  :global(.comment-author) {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  :global(.comment-body) {
+    margin: 4px 0 0;
+    font-size: 14px;
+    white-space: pre-wrap;
+  }
+  :global(.comment-btn) {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  :global(.comment-btn:hover) {
+    border-color: var(--accent);
+  }
+  .comment-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 26px;
+    margin-top: 10px;
+  }
+  .form-head {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin-bottom: 18px;
+  }
+  .target-title {
+    color: var(--accent);
+  }
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .field-hint {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .field-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 9px;
+    padding: 12px 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    margin-bottom: 18px;
+  }
+  .field-input:focus {
+    border-color: var(--accent);
+  }
+  .field-author {
+    max-width: 260px;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: 18px;
+  }
+  .altcha-row {
+    margin: 6px 0 18px;
+  }
+  .form-submit {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .submit-btn {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 12px 20px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .submit-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .result {
+    margin-top: 16px;
+    border-radius: 9px;
+    padding: 13px 15px;
+    font-size: 14.5px;
+  }
+  .result-ok {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
+  .result-error {
+    background: color-mix(in srgb, #e5484d 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, #e5484d 40%, var(--border));
+  }
+</style>
