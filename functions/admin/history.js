@@ -7,7 +7,7 @@
 import { requireModerator } from '../_shared/access.js';
 import { escapeHtml } from '../_shared/html.js';
 import { adminHtml } from '../_shared/admin.js';
-import { parseAdminQuery, buildAdminListQuery, totalPages, PAGE_SIZE } from '../_shared/admin-query.js';
+import { parseAdminQuery, buildAdminListQuery, totalPages, pageLink, PAGE_SIZE } from '../_shared/admin-query.js';
 import { renderNav, renderFilterForm, renderPagination } from '../_shared/admin-chrome.js';
 
 export async function onRequestGet({ request, env }) {
@@ -47,7 +47,7 @@ function renderHistory(rows, query, count) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Moderation history</title><link rel="stylesheet" href="/admin.css"></head><body>
 ${renderNav('history')}
 ${renderFilterForm(query, '/admin/history')}
-<form id="bulk-form" method="POST"></form>
+<form id="bulk-form" method="POST"><input type="hidden" name="return_to" value="${escapeHtml(`/admin/history${pageLink(query, query.page)}`)}"></form>
 <h1>History (${count})</h1>
 ${items || '<p>No history yet.</p>'}
 <div class="admin-bulk-actions">

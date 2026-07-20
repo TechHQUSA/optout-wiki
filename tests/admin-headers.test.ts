@@ -81,8 +81,7 @@ test('POST with sec-fetch-site: same-site is treated as trusted (allowed)', asyn
 test('GET /admin response CSP allows same-origin script and style, nothing else new', async () => {
   const res = await onRequestGet({ request: new Request('https://x/admin'), env: { DB: listDb } });
   const csp = res.headers.get('content-security-policy') ?? '';
-  expect(csp).toContain("script-src 'self'");
-  expect(csp).toContain("style-src 'self'");
-  expect(csp).not.toContain('unsafe-inline');
-  expect(csp).not.toContain('unsafe-eval');
+  expect(csp).toBe(
+    "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  );
 });

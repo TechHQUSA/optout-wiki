@@ -65,3 +65,17 @@ export function parseIds(form) {
   if (raw.some((v) => typeof v !== 'string' || v === '')) return null;
   return /** @type {string[]} */ (raw);
 }
+
+/**
+ * Validates a `return_to` form field against an allow-list of internal admin
+ * paths (queue or history, with or without a filter query string) and falls
+ * back to `/admin` otherwise — never redirects to an attacker-supplied
+ * external location.
+ * @param {FormData} form
+ * @returns {string}
+ */
+export function safeReturnTo(form) {
+  const raw = form.get('return_to');
+  if (typeof raw === 'string' && /^\/admin(\/history)?(\?[^\s]*)?$/.test(raw)) return raw;
+  return '/admin';
+}

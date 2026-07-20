@@ -22,5 +22,13 @@
     "url": "https://signal.org",
     "summary": "End-to-end encrypted messaging and calls with minimal metadata retention.",
     "tags": ["messaging", "encryption"]
+  },
+  {
+    "id": "makro",
+    "name": "Makro",
+    "category": "Other",
+    "url": "https://makroexpander.com",
+    "summary": "Makro: a privacy-first text expander for Chrome, Edge, and Firefox - type a short hotword, get your full text anywhere, with zero-knowledge encrypted sync and on-device AI so your macros never leave your hands.",
+    "tags": ["e2e"]
   }
 ]
