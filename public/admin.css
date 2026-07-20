@@ -111,6 +111,72 @@ article p {
 .admin-actions button:hover {
   border-color: var(--accent);
 }
+.endorsement-count {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+.harden-checks {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-right: 10px;
+}
+.harden-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.admin-comments {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.admin-comment {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.admin-comment-flag {
+  border: 1px solid oklch(0.55 0.19 25 / 0.5);
+}
+.flag-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: oklch(0.55 0.19 25);
+  margin-right: 6px;
+}
+.comment-delete {
+  display: inline-block;
+  margin-left: 8px;
+}
+.comment-delete button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.stale-section {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.stale-section h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
 
 .admin-bulk-actions {
   display: flex;
