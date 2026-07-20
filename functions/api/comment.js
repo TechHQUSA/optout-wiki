@@ -18,6 +18,7 @@
 // volume are limited independently (a commenter doesn't burn their
 // submission budget, and vice versa).
 import { verifyAltcha } from '../_shared/altcha.js';
+import { recordAbuseEvent } from '../_shared/abuse.js';
 import { hashIp, isHoneypotTripped, checkRateLimit } from '../_shared/security.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -48,7 +49,10 @@ export async function handleComment(request, env, now) {
   }
 
   // 1. Honeypot — same generic 400 as contribute, no tell.
-  if (isHoneypotTripped(data.website)) return json({ ok: false }, 400);
+  if (isHoneypotTripped(data.website)) {
+    await recordAbuseEvent(env.DB, 'honeypot', now);
+    return json({ ok: false }, 400);
+  }
 
   // 2. Validation + caps (fail-closed, before any D1 access).
   const submissionId = typeof data.submission_id === 'string' ? data.submission_id.trim() : '';
@@ -70,11 +74,15 @@ export async function handleComment(request, env, now) {
     const ip = request.headers.get('cf-connecting-ip') || '0.0.0.0';
     const ipHash = await hashIp(ip, env.IP_SALT);
     if (!(await checkRateLimit(env.DB, `c:${ipHash}`, now, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX))) {
+      await recordAbuseEvent(env.DB, 'rate', now);
       return json({ ok: false, error: 'rate' }, 429);
     }
 
     // 5. ALTCHA — deliberately last (spends the solve).
-    if (!(await verifyAltcha(data.altcha, env, env.DB, now))) return json({ ok: false, error: 'altcha' }, 400);
+    if (!(await verifyAltcha(data.altcha, env, env.DB, now))) {
+      await recordAbuseEvent(env.DB, 'altcha', now);
+      return json({ ok: false, error: 'altcha' }, 400);
+    }
 
     // 6. Insert. No IP-derived value on the row.
     const id = crypto.randomUUID();

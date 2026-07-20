@@ -5,11 +5,14 @@
 import { expect, test, vi, beforeEach } from 'vitest';
 import { handleComment } from '../functions/api/comment.js';
 import { verifyAltcha } from '../functions/_shared/altcha.js';
+import { recordAbuseEvent } from '../functions/_shared/abuse.js';
 
 vi.mock('../functions/_shared/altcha.js', () => ({ verifyAltcha: vi.fn(async (p: string) => p === 'good') }));
+vi.mock('../functions/_shared/abuse.js', () => ({ recordAbuseEvent: vi.fn(async () => {}) }));
 
 beforeEach(() => {
   vi.mocked(verifyAltcha).mockClear();
+  vi.mocked(recordAbuseEvent).mockClear();
 });
 
 // D1 mock: submissions lookup by id + comment INSERT capture + optional
@@ -163,4 +166,22 @@ test('array/null JSON body -> 400, no throw', async () => {
     expect(res.status).toBe(400);
   }
   expect(db.rows.length).toBe(0);
+});
+
+test('honeypot trip records a "honeypot" abuse event', async () => {
+  const db = makeDb(pending);
+  await handleComment(req({ ...valid, website: 'bot' }), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'honeypot', 5000);
+});
+
+test('rate-limit rejection records a "rate" abuse event', async () => {
+  const db = makeDb({ ...pending, rateCount: 10 });
+  await handleComment(req(valid), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'rate', 5000);
+});
+
+test('a failed ALTCHA solve records an "altcha" abuse event', async () => {
+  const db = makeDb(pending);
+  await handleComment(req({ ...valid, altcha: 'bad' }), { ...env, DB: db }, 5000);
+  expect(recordAbuseEvent).toHaveBeenCalledWith(db, 'altcha', 5000);
 });
