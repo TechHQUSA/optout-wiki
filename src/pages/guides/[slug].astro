@@ -16,6 +16,7 @@ import Footer from '../../components/Footer.astro';
 import { getCollection, render } from 'astro:content';
 import { formatVerified } from '../../lib/format';
 import { safeJsonLd } from '../../lib/json-ld';
+import { isStale } from '../../lib/staleness';
 
 export async function getStaticPaths() {
   const guides = await getCollection('guides', (g) => g.data.published);
@@ -25,6 +26,10 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const toc = headings.filter((h) => h.depth === 2);
+
+// Stage-5 staleness, computed at build time (the badge advances only when
+// the site rebuilds — see src/lib/staleness.ts).
+const stale = isStale(entry.data.lastVerified, Date.now());
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -67,6 +72,13 @@ const jsonLdSafe = safeJsonLd(jsonLd);
             {entry.data.sources.length > 0 && <a href="#sources">See sources &rarr;</a>}
           </span>
         </div>
+
+        {stale && (
+          <div class="stale-badge">
+            Due for re-verification — this guide was last verified more than 90 days ago. Steps may
+            have changed; <a href="/contribute">flag anything broken</a>.
+          </div>
+        )}
 
         <Content />
 
@@ -197,6 +209,17 @@ const jsonLdSafe = safeJsonLd(jsonLd);
   .article-body {
     max-width: 720px;
     min-width: 0;
+  }
+  .stale-badge {
+    border: 1px solid color-mix(in srgb, #e5a13d 55%, var(--border));
+    background: color-mix(in srgb, #e5a13d 10%, var(--surface));
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    margin-bottom: 22px;
+  }
+  .stale-badge a {
+    color: var(--accent);
   }
   .vetting-banner {
     display: flex;
