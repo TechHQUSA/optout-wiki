@@ -225,8 +225,12 @@ import Footer from '../components/Footer.astro';
       });
       showResult(res.ok ? 'Comment posted.' : 'Something went wrong — try again.', res.ok);
       if (res.ok) {
+        // reset() clears the hidden submission_id, so a follow-up submit
+        // would target nothing — hide the form until a card is re-picked.
         form.reset();
         await loadFeed();
+        form.hidden = true;
+        if (targetTitle) targetTitle.textContent = '';
       }
     } catch {
       showResult('Something went wrong — try again.', false);

@@ -23,9 +23,11 @@ CREATE INDEX idx_comments_submission ON comments(submission_id, created_at);
 -- endorsements: one row per (submission, moderator email) — the PRIMARY KEY
 -- makes "the same editor endorsing twice" a no-op at the schema level, so
 -- MIN_APPROVALS counts distinct editors by construction.
+-- COLLATE NOCASE + code-side lowercasing (approve.js) together make the
+-- distinct-editor count case-insensitive: Alice@x and alice@x are one editor.
 CREATE TABLE endorsements (
   submission_id TEXT NOT NULL,
-  moderator     TEXT NOT NULL,
+  moderator     TEXT NOT NULL COLLATE NOCASE,
   endorsed_at   INTEGER NOT NULL,
   PRIMARY KEY (submission_id, moderator)
 );

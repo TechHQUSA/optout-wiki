@@ -34,7 +34,8 @@ function makeDb(rowsById: Record<string, Row>) {
               if (sql.startsWith('INSERT OR IGNORE INTO endorsements')) {
                 const [subId, moderator] = args as [string, string];
                 if (!ledger.has(subId)) ledger.set(subId, new Set());
-                ledger.get(subId)!.add(moderator);
+                // mirror the schema's COLLATE NOCASE on moderator
+                ledger.get(subId)!.add(String(moderator).toLowerCase());
                 return { meta: { changes: 1 } };
               }
               if (sql.startsWith('UPDATE submissions')) {
@@ -89,6 +90,16 @@ test('minApprovals: default 2, env override, garbage falls back to 2', () => {
   expect(minApprovals({ MIN_APPROVALS: '3' })).toBe(3);
   expect(minApprovals({ MIN_APPROVALS: '0' })).toBe(2);
   expect(minApprovals({ MIN_APPROVALS: 'lots' })).toBe(2);
+  expect(minApprovals({ MIN_APPROVALS: '-3' })).toBe(2);
+});
+
+test('mixed-case moderator emails count as ONE editor (case-insensitive ledger)', async () => {
+  const db = makeDb({ a1: { title: 'G', category: 'Cars', level: 'LOW', body: 'b', sources: '[]' } });
+  vi.mocked(getModeratorEmail).mockResolvedValue('Mod@Example.com');
+  await onRequestPost({ request: form('a1'), env: { DB: db } });
+  vi.mocked(getModeratorEmail).mockResolvedValue('mod@example.com');
+  const res = await onRequestPost({ request: form('a1'), env: { DB: db } });
+  expect(await res.text()).toContain('endorsed 1/2'); // not finalized, not 2
 });
 
 test('MIN_APPROVALS=1: approve finalizes, writes audit + hardening columns, returns markdown', async () => {

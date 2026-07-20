@@ -55,9 +55,34 @@ test('guide template renders the stale badge only for stale guides (source pin)'
   // dist spot-check: badge text appears in a built guide iff stale exists
   if (existsSync('dist/stale-guides.json')) {
     const manifest = JSON.parse(readFileSync('dist/stale-guides.json', 'utf8'));
+    const staleSlugs = new Set(manifest.stale.map((g: { slug: string }) => g.slug));
     for (const g of manifest.stale) {
       const page = readFileSync(`dist/guides/${g.slug}/index.html`, 'utf8');
       expect(page).toContain('Due for re-verification');
     }
+    // non-stale branch: built guides NOT in the manifest carry no badge
+    for (const slug of readdirSync('dist/guides', { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)) {
+      if (staleSlugs.has(slug)) continue;
+      const page = readFileSync(`dist/guides/${slug}/index.html`, 'utf8');
+      expect(page, `unexpected stale badge on fresh guide ${slug}`).not.toContain('Due for re-verification');
+    }
+  }
+});
+
+test('manifest is COMPLETE: every published guide stale at generated_at is listed', () => {
+  const manifest = JSON.parse(readFileSync('dist/stale-guides.json', 'utf8'));
+  const asOf = Date.parse(manifest.generated_at); // deterministic vs test-time clock
+  const listed = new Set(manifest.stale.map((g: { slug: string }) => g.slug));
+  const dir = 'src/content/guides';
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+    const fm = readFileSync(`${dir}/${file}`, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+    if (/^published:\s*false/m.test(fm)) continue;
+    const dateStr = fm.match(/^lastVerified:\s*["']?(\d{4}-\d{2}-\d{2})/m)?.[1];
+    if (!dateStr) continue;
+    const slug = file.replace(/\.md$/, '');
+    const stale = isStale(new Date(`${dateStr}T00:00:00Z`), asOf);
+    expect(listed.has(slug), `${slug}: manifest says ${listed.has(slug)}, content says stale=${stale}`).toBe(stale);
   }
 });

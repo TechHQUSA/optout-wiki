@@ -51,7 +51,9 @@ export async function onRequestPost({ request, env }) {
   const ids = parseIds(form);
   if (!ids) return adminText('bad-request', 400);
 
-  const moderatedBy = await getModeratorEmail(request, env);
+  // Lowercased so the endorsement ledger's distinct-editor count is
+  // case-insensitive (belt: schema also collates NOCASE on moderator).
+  const moderatedBy = String((await getModeratorEmail(request, env)) || '').toLowerCase();
   const now = Date.now();
   const today = new Date(now).toISOString().slice(0, 10);
   const min = minApprovals(env);
