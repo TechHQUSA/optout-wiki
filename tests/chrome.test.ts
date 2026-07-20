@@ -7,7 +7,7 @@ import Footer from '../src/components/Footer.astro';
 test('header renders nav links and theme toggle', async () => {
   const c = await AstroContainer.create();
   const html = await c.renderToString(Header, { props: { current: 'guides' } });
-  for (const label of ['Guides', 'Software', 'Blog', 'Contribute'])
+  for (const label of ['Guides', 'Software', 'Blog', 'Review', 'Contribute'])
     expect(html).toContain(label);
   expect(html).toContain('id="theme-toggle"');
 });
