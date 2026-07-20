@@ -68,11 +68,11 @@ test('pivotAbuseEvents groups flat rows by day into honeypot/altcha/rate/total',
   const rows = [
     { day: '2026-07-20', type: 'honeypot', n: 3 },
     { day: '2026-07-20', type: 'rate', n: 2 },
-    { day: '2026-07-19', type: 'rate', n: 5 },
+    { day: '2026-07-19', type: 'altcha', n: 5 },
   ];
   expect(pivotAbuseEvents(rows)).toEqual([
     { day: '2026-07-20', honeypot: 3, altcha: 0, rate: 2, total: 5 },
-    { day: '2026-07-19', honeypot: 0, altcha: 0, rate: 5, total: 5 },
+    { day: '2026-07-19', honeypot: 0, altcha: 5, rate: 0, total: 5 },
   ]);
 });
 
