@@ -6,13 +6,13 @@ import { escapeHtml } from './html.js';
 import { pageLink } from './admin-query.js';
 
 /**
- * @param {'queue'|'history'} active
+ * @param {'queue'|'history'|'abuse'} active
  * @returns {string}
  */
 export function renderNav(active) {
   const tab = (href, label, key) =>
     `<a href="${href}"${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
-  return `<nav class="admin-nav">${tab('/admin', 'Queue', 'queue')}${tab('/admin/history', 'History', 'history')}</nav>`;
+  return `<nav class="admin-nav">${tab('/admin', 'Queue', 'queue')}${tab('/admin/history', 'History', 'history')}${tab('/admin/abuse', 'Abuse', 'abuse')}</nav>`;
 }
 
 /**

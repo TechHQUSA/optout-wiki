@@ -14,6 +14,19 @@ test('renderNav marks history as active when given "history"', () => {
   expect(html).toMatch(/href="\/admin\/history"[^>]*aria-current="page"/);
 });
 
+test('renderNav includes and marks the abuse tab', () => {
+  const html = renderNav('abuse');
+  expect(html).toContain('href="/admin/abuse"');
+  expect(html).toMatch(/href="\/admin\/abuse"[^>]*aria-current="page"/);
+});
+
+test('renderNav always renders all three tabs regardless of which is active', () => {
+  const html = renderNav('queue');
+  expect(html).toContain('href="/admin"');
+  expect(html).toContain('href="/admin/history"');
+  expect(html).toContain('href="/admin/abuse"');
+});
+
 test('renderFilterForm escapes the current query values and points at the given action', () => {
   const html = renderFilterForm({ q: '<script>', category: 'Cars"', level: 'LOW', sort: 'oldest' }, '/admin/history');
   expect(html).toContain('action="/admin/history"');
