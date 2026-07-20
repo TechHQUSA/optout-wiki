@@ -304,7 +304,9 @@ const categories = ['Cars', 'Phones', 'Business', 'Browsers', 'OS'];
         body: JSON.stringify(payload),
       });
       showResult(
-        res.ok ? 'Draft queued. A public review thread will open.' : 'Something went wrong — try again.',
+        res.ok
+          ? 'Draft queued — it is now visible for open review at /review.'
+          : 'Something went wrong — try again.',
         res.ok,
       );
       if (res.ok) {

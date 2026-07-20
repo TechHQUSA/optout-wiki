@@ -36,6 +36,7 @@ const pipeline = [
     title: 'Open review',
     who: 'the community',
     body: 'Anyone can read, test the steps, and comment. Claims without a working source get flagged right away.',
+    link: { href: '/review', label: 'Watch the review queue →' },
   },
   {
     n: '3',
@@ -126,6 +127,7 @@ const jsonLdSafe = safeJsonLd(jsonLd);
                   <span class="pipeline-who">{p.who}</span>
                 </div>
                 <p>{p.body}</p>
+                {p.link && <a class="pipeline-link" href={p.link.href}>{p.link.label}</a>}
               </div>
             </div>
           ))}
@@ -261,6 +263,17 @@ const jsonLdSafe = safeJsonLd(jsonLd);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
+  }
+  .pipeline-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .pipeline-link:hover {
+    text-decoration: underline;
   }
   .pipeline-step {
     display: grid;
